@@ -1,0 +1,30 @@
+[package]
+name = "mood_music_module"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A procedural mood music module that generates continuous audio streams based on mood parameters"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+cpal = "0.15"
+rand = "0.8"
+rand_distr = "0.4"
+crossbeam = "0.8"
+ringbuf = "0.4"
+hound = { version = "3.5", optional = true }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[features]
+default = ["wav-export"]
+wav-export = ["hound"]
+
+[[bin]]
+name = "mood_music_demo"
+path = "src/bin/demo.rs"
+
+[[bench]]
+name = "audio_benchmark"
+harness = false

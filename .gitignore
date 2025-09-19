@@ -1,0 +1,28 @@
+# Rust
+/target/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Audio files
+*.wav
+*.mp3
+*.flac
+*.ogg
+
+# Build artifacts
+/dist/
+/build/
+
+# Logs
+*.log
+
+# Documentation build
+/docs/_build/
