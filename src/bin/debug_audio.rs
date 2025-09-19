@@ -11,8 +11,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     module.start();
     println!("Module started: {}", module.is_running());
 
-    println!("Setting mood to 0.15...");
-    module.set_mood(0.15);
+    println!("Setting mood to 0.35...");
+    module.set_mood(0.35);
     println!("Current mood: {:.3}", module.get_mood());
 
     // Let the transition system update by generating a few samples

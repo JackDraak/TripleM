@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut module = MoodMusicModule::with_config(config)?;
 
     module.start();
-    module.set_mood(0.1); // Environmental sounds
+    module.set_mood(0.35); // Gentle melodic sounds
 
     println!("Testing audio generation for 5 seconds...");
     println!("Generating samples and showing levels:");
