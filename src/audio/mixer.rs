@@ -27,7 +27,7 @@ impl MoodWeights {
     fn environmental_region(mood: f32) -> Self {
         let t = mood / 0.25; // Normalize to 0-1
         let environmental = 1.0;
-        let gentle_melodic = (t * 2.0).min(1.0) * 0.3; // Small blend at end
+        let gentle_melodic = (t * 2.0).min(1.0) * 0.6; // Increased blend
 
         Self {
             environmental,
@@ -40,9 +40,9 @@ impl MoodWeights {
     /// Gentle melodic region (0.25 - 0.5)
     fn gentle_melodic_region(mood: f32) -> Self {
         let t = (mood - 0.25) / 0.25; // Normalize to 0-1
-        let environmental = (1.0 - t * 2.0).max(0.0) * 0.3;
+        let environmental = (1.0 - t * 2.0).max(0.0) * 0.6; // Increased blend
         let gentle_melodic = 1.0;
-        let active_ambient = (t * 2.0).min(1.0) * 0.3;
+        let active_ambient = (t * 2.0).min(1.0) * 0.6; // Increased blend
 
         Self {
             environmental,
@@ -55,9 +55,9 @@ impl MoodWeights {
     /// Active ambient region (0.5 - 0.75)
     fn active_ambient_region(mood: f32) -> Self {
         let t = (mood - 0.5) / 0.25; // Normalize to 0-1
-        let gentle_melodic = (1.0 - t * 2.0).max(0.0) * 0.3;
+        let gentle_melodic = (1.0 - t * 2.0).max(0.0) * 0.6; // Increased blend
         let active_ambient = 1.0;
-        let edm_style = (t * 2.0).min(1.0) * 0.3;
+        let edm_style = (t * 2.0).min(1.0) * 0.6; // Increased blend
 
         Self {
             environmental: 0.0,
@@ -70,7 +70,7 @@ impl MoodWeights {
     /// EDM style region (0.75 - 1.0)
     fn edm_style_region(mood: f32) -> Self {
         let t = (mood - 0.75) / 0.25; // Normalize to 0-1
-        let active_ambient = (1.0 - t * 2.0).max(0.0) * 0.3;
+        let active_ambient = (1.0 - t * 2.0).max(0.0) * 0.6; // Increased blend
         let edm_style = 1.0;
 
         Self {
