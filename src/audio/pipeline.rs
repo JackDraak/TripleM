@@ -90,6 +90,9 @@ impl AudioPipeline {
         // Update mixer weights
         self.mixer.set_weights(*self.transition_manager.current_weights());
 
+        // Update generator parameters based on current weights
+        self.update_generator_parameters();
+
         // Generate samples from all generators
         let environmental = self.generators.environmental.generate_sample(self.current_time);
         let gentle_melodic = self.generators.gentle_melodic.generate_sample(self.current_time);
@@ -137,6 +140,9 @@ impl AudioPipeline {
 
             // Update mixer weights
             self.mixer.set_weights(*self.transition_manager.current_weights());
+
+            // Update generator parameters
+            self.update_generator_parameters();
 
             // Generate batch samples
             self.generators.environmental.generate_batch(&mut env_batch[..chunk_size], self.current_time);

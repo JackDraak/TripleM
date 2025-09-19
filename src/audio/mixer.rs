@@ -169,7 +169,7 @@ impl OutputMixer {
 
         Self {
             current_weights: MoodWeights::default(),
-            master_volume: 0.7,
+            master_volume: 1.0,
             enable_limiter,
             limiter_threshold: 0.95,
             limiter_envelope: 0.0,

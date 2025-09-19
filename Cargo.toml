@@ -25,6 +25,18 @@ wav-export = ["hound"]
 name = "mood_music_demo"
 path = "src/bin/demo.rs"
 
+[[bin]]
+name = "audio_demo"
+path = "src/bin/audio_demo.rs"
+
+[[bin]]
+name = "test_audio"
+path = "src/bin/test_audio.rs"
+
+[[bin]]
+name = "debug_audio"
+path = "src/bin/debug_audio.rs"
+
 [[bench]]
 name = "audio_benchmark"
 harness = false

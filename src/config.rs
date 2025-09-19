@@ -61,7 +61,7 @@ impl MoodConfig {
             synthesis_quality: SynthesisQuality::Medium,
             max_voices: 16,
             enable_limiter: true,
-            master_volume: 0.7,
+            master_volume: 1.0,
             enable_audio_debug: false,
         }
     }
@@ -149,7 +149,7 @@ impl MoodConfig {
             synthesis_quality: SynthesisQuality::Medium,
             max_voices: 8,
             enable_limiter: true,
-            master_volume: 0.7,
+            master_volume: 1.0,
             enable_audio_debug: false,
         }
     }
@@ -164,7 +164,7 @@ impl MoodConfig {
             synthesis_quality: SynthesisQuality::Ultra,
             max_voices: 32,
             enable_limiter: true,
-            master_volume: 0.7,
+            master_volume: 1.0,
             enable_audio_debug: false,
         }
     }

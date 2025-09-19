@@ -62,7 +62,7 @@ impl EnvironmentalGenerator {
         let white_noise = utils::white_noise(&mut self.rng);
         let pink_noise = utils::pink_noise_simple(white_noise, &mut self.pink_noise_state);
 
-        let wave_sound = (base_wave + wave_variation) * 0.4 + pink_noise * 0.2;
+        let wave_sound = (base_wave + wave_variation) * 0.8 + pink_noise * 0.4;
 
         // Update wave phase
         self.wave_phase += self.wave_frequency / self.sample_rate;
@@ -87,7 +87,7 @@ impl EnvironmentalGenerator {
             self.wind_phase -= 1.0;
         }
 
-        pink_noise * wind_intensity * 0.5
+        pink_noise * wind_intensity * 1.0
     }
 
     /// Generate forest/nature sounds
@@ -105,7 +105,7 @@ impl EnvironmentalGenerator {
             0.0
         };
 
-        pink_noise * 0.3 + chirp
+        pink_noise * 0.6 + chirp
     }
 
     /// Generate rain sounds
@@ -125,7 +125,7 @@ impl EnvironmentalGenerator {
             0.0
         };
 
-        rain_base + drop
+        (rain_base + drop) * 1.5
     }
 
     /// Update soundscape cycling
