@@ -28,6 +28,7 @@ struct MoodMusicApp {
     current_mood_name: String,
     audio_module: Option<Arc<Mutex<MoodMusicModule>>>,
     audio_thread: Option<std::thread::JoinHandle<()>>,
+    audio_shutdown: Option<Arc<std::sync::atomic::AtomicBool>>,
     error_message: Option<String>,
 
     // Audio stats
@@ -53,6 +54,7 @@ impl MoodMusicApp {
             current_mood_name: "Gentle Melodic".to_string(),
             audio_module: None,
             audio_thread: None,
+            audio_shutdown: None,
             error_message: None,
             current_rms: 0.0,
             generator_states: Vec::new(),
@@ -79,16 +81,33 @@ impl MoodMusicApp {
     }
 
     fn stop_audio(&mut self) {
+        println!("🔇 Stopping audio...");
+
+        // Signal shutdown to audio thread
+        if let Some(shutdown_flag) = &self.audio_shutdown {
+            shutdown_flag.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+
+        // Stop the module
         if let Some(module) = &self.audio_module {
-            let module_lock = module.lock().unwrap();
-            module_lock.stop();
+            if let Ok(module_lock) = module.lock() {
+                module_lock.stop();
+            }
+        }
+
+        // Wait for audio thread to finish with timeout
+        if let Some(handle) = self.audio_thread.take() {
+            println!("⏳ Waiting for audio thread to finish...");
+            match handle.join() {
+                Ok(_) => println!("✅ Audio thread finished cleanly"),
+                Err(_) => println!("⚠️ Audio thread finished with error"),
+            }
         }
 
         self.audio_module = None;
-        if let Some(handle) = self.audio_thread.take() {
-            let _ = handle.join();
-        }
+        self.audio_shutdown = None;
         self.is_playing = false;
+        println!("🔇 Audio stopped");
     }
 
     fn initialize_audio(&self) -> Result<Arc<Mutex<MoodMusicModule>>, Box<dyn std::error::Error>> {
@@ -104,9 +123,15 @@ impl MoodMusicApp {
 
     fn start_audio_thread(&mut self, module: Arc<Mutex<MoodMusicModule>>) {
         let module_clone = module.clone();
-        let module_for_thread = module.clone();
+        let shutdown_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let shutdown_flag_for_callback = shutdown_flag.clone();
+        let shutdown_flag_for_loop = shutdown_flag.clone();
+
+        self.audio_shutdown = Some(shutdown_flag);
 
         self.audio_thread = Some(std::thread::spawn(move || {
+            println!("🎵 Audio thread starting...");
+
             // Audio playback using CPAL
             use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
@@ -117,33 +142,57 @@ impl MoodMusicApp {
             let _sample_rate = config.sample_rate().0;
             let channels = config.channels() as usize;
 
-            let stream = device.build_output_stream(
+            let stream_result = device.build_output_stream(
                 &config.into(),
                 move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                    let mut module_lock = module_clone.lock().unwrap();
+                    // Check for shutdown signal
+                    if shutdown_flag_for_callback.load(std::sync::atomic::Ordering::Relaxed) {
+                        // Fill with silence and return
+                        for sample in data.iter_mut() {
+                            *sample = 0.0;
+                        }
+                        return;
+                    }
 
-                    for frame in data.chunks_mut(channels) {
-                        let sample = module_lock.get_next_sample();
-                        for channel in frame.iter_mut() {
-                            *channel = sample;
+                    if let Ok(mut module_lock) = module_clone.try_lock() {
+                        for frame in data.chunks_mut(channels) {
+                            let sample = module_lock.get_next_sample();
+                            for channel in frame.iter_mut() {
+                                *channel = sample;
+                            }
+                        }
+                    } else {
+                        // If we can't lock, fill with silence
+                        for sample in data.iter_mut() {
+                            *sample = 0.0;
                         }
                     }
                 },
                 |err| eprintln!("Audio stream error: {}", err),
                 None,
-            ).expect("Failed to build audio stream");
+            );
 
-            stream.play().expect("Failed to play stream");
+            match stream_result {
+                Ok(stream) => {
+                    if let Err(e) = stream.play() {
+                        eprintln!("Failed to play stream: {}", e);
+                        return;
+                    }
 
-            // Keep the stream alive
-            loop {
-                std::thread::sleep(Duration::from_millis(100));
+                    // Keep the stream alive until shutdown
+                    while !shutdown_flag_for_loop.load(std::sync::atomic::Ordering::Relaxed) {
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
 
-                // Check if module is still valid (stop condition)
-                if Arc::strong_count(&module_for_thread) <= 1 {
-                    break;
+                    println!("🎵 Audio thread received shutdown signal");
+                    drop(stream); // Explicitly drop the stream
+                }
+                Err(e) => {
+                    eprintln!("Failed to build audio stream: {}", e);
                 }
             }
+
+            println!("🎵 Audio thread finishing...");
         }));
     }
 
@@ -377,9 +426,6 @@ impl eframe::App for MoodMusicApp {
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         println!("🎵 Shutting down Mood Music Controller...");
         self.stop_audio();
-
-        // Give audio thread time to clean up
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        println!("✅ Audio stopped cleanly");
+        println!("✅ Mood Music Controller shut down cleanly");
     }
 }
