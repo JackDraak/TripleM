@@ -13,6 +13,8 @@ rand_distr = "0.4"
 crossbeam = "0.8"
 ringbuf = "0.4"
 hound = { version = "3.5", optional = true }
+eframe = "0.27"
+egui = "0.27"
 
 [dev-dependencies]
 criterion = "0.5"
@@ -36,6 +38,10 @@ path = "src/bin/test_audio.rs"
 [[bin]]
 name = "debug_audio"
 path = "src/bin/debug_audio.rs"
+
+[[bin]]
+name = "mood_gui"
+path = "src/bin/mood_gui.rs"
 
 [[bench]]
 name = "audio_benchmark"

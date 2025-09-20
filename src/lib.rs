@@ -83,6 +83,16 @@ impl MoodMusicModule {
         f32::from_bits(self.current_mood.load(Ordering::Relaxed))
     }
 
+    /// Set the master volume (0.0 to 1.0)
+    pub fn set_volume(&mut self, volume: f32) {
+        self.audio_pipeline.set_master_volume(volume.clamp(0.0, 1.0));
+    }
+
+    /// Get the current master volume
+    pub fn get_volume(&self) -> f32 {
+        self.audio_pipeline.master_volume()
+    }
+
     /// Start the audio generation
     pub fn start(&self) {
         self.is_running.store(true, Ordering::Relaxed);
