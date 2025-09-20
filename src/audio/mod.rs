@@ -11,6 +11,7 @@ pub mod granular;
 pub mod drums;
 pub mod wavetables;
 pub mod additive;
+pub mod unified_synth;
 
 pub use pipeline::AudioPipeline;
 pub use buffer::AudioBuffer;
@@ -23,6 +24,7 @@ pub use granular::GranularEngine;
 pub use drums::{DrumSynthesizer, EDMStyle, PercussionType};
 pub use wavetables::{MorphingWavetableSynth, WaveCharacter, WavetableBank};
 pub use additive::{AdditiveSynthesizer, PolyharmonicCharacter, HarmonicOscillator};
+pub use unified_synth::{UnifiedSynthesizer, SynthesisMorpher, VoiceManager};
 
 /// Represents a single audio frame (mono sample)
 pub type AudioFrame = f32;
