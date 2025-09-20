@@ -7,6 +7,8 @@ pub mod transition;
 pub mod variation;
 pub mod filters;
 pub mod synthesis;
+pub mod granular;
+pub mod drums;
 
 pub use pipeline::AudioPipeline;
 pub use buffer::AudioBuffer;
@@ -15,6 +17,8 @@ pub use transition::TransitionManager;
 pub use variation::{NaturalVariation, MicroTiming, DynamicRange};
 pub use filters::{StateVariableFilter, OnePoleFilter, MorphingFilter, BiquadFilter, FilterBank, FilterType, FilterOutput};
 pub use synthesis::{Oscillator, OscillatorType, FmOperator, FmSynth, FmAlgorithm, AdsrEnvelope, SynthVoice, midi_to_frequency};
+pub use granular::GranularEngine;
+pub use drums::{DrumSynthesizer, EDMStyle, PercussionType};
 
 /// Represents a single audio frame (mono sample)
 pub type AudioFrame = f32;

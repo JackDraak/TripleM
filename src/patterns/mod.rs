@@ -1,6 +1,7 @@
 //! Pattern generation and management for mood music
 
 pub mod markov;
+pub mod genetic;
 pub mod rhythm;
 pub mod melody;
 pub mod harmony;
@@ -9,6 +10,7 @@ use rand::Rng;
 use crate::error::Result;
 
 pub use markov::MarkovChain;
+pub use genetic::{GeneticRhythm, RhythmChromosome, FitnessCriteria};
 pub use rhythm::{RhythmPattern, RhythmGenerator};
 pub use melody::{MelodyPattern, MelodyGenerator};
 pub use harmony::{HarmonyPattern, HarmonyGenerator};
