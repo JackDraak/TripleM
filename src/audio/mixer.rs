@@ -1,4 +1,5 @@
 use crate::audio::utils::{cosine_interpolate, soft_clip, clamp};
+use crate::audio::StereoFrame;
 
 /// Weights for blending different mood generators
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -239,6 +240,70 @@ impl OutputMixer {
 
         for i in 0..len {
             output[i] = self.mix_sample(
+                environmental[i],
+                gentle_melodic[i],
+                active_ambient[i],
+                edm_style[i],
+            );
+        }
+    }
+
+    /// Mix stereo audio from all generators into a single stereo output sample
+    pub fn mix_stereo_sample(
+        &mut self,
+        environmental: StereoFrame,
+        gentle_melodic: StereoFrame,
+        active_ambient: StereoFrame,
+        edm_style: StereoFrame,
+    ) -> StereoFrame {
+        // Mix left channel
+        let left = environmental.left * self.current_weights.environmental
+            + gentle_melodic.left * self.current_weights.gentle_melodic
+            + active_ambient.left * self.current_weights.active_ambient
+            + edm_style.left * self.current_weights.edm_style;
+
+        // Mix right channel
+        let right = environmental.right * self.current_weights.environmental
+            + gentle_melodic.right * self.current_weights.gentle_melodic
+            + active_ambient.right * self.current_weights.active_ambient
+            + edm_style.right * self.current_weights.edm_style;
+
+        // Apply master volume
+        let left_output = left * self.master_volume;
+        let right_output = right * self.master_volume;
+
+        // Apply limiting if enabled
+        let final_left = if self.enable_limiter {
+            self.apply_limiter(left_output)
+        } else {
+            soft_clip(left_output, 0.95)
+        };
+
+        let final_right = if self.enable_limiter {
+            self.apply_limiter(right_output)
+        } else {
+            soft_clip(right_output, 0.95)
+        };
+
+        StereoFrame::new(final_left, final_right)
+    }
+
+    /// Mix stereo audio from all generators into a stereo buffer
+    pub fn mix_stereo_buffer(
+        &mut self,
+        environmental: &[StereoFrame],
+        gentle_melodic: &[StereoFrame],
+        active_ambient: &[StereoFrame],
+        edm_style: &[StereoFrame],
+        output: &mut [StereoFrame],
+    ) {
+        let len = output.len().min(environmental.len())
+            .min(gentle_melodic.len())
+            .min(active_ambient.len())
+            .min(edm_style.len());
+
+        for i in 0..len {
+            output[i] = self.mix_stereo_sample(
                 environmental[i],
                 gentle_melodic[i],
                 active_ambient[i],

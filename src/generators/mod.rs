@@ -7,6 +7,7 @@ pub mod edm_style;
 
 use crate::config::MoodConfig;
 use crate::error::Result;
+use crate::audio::StereoFrame;
 
 pub use environmental::EnvironmentalGenerator;
 pub use gentle_melodic::GentleMelodicGenerator;
@@ -15,11 +16,28 @@ pub use edm_style::EdmStyleGenerator;
 
 /// Base trait for all mood generators
 pub trait MoodGenerator {
-    /// Generate a single audio sample at the given time
+    /// Generate a single mono audio sample at the given time
     fn generate_sample(&mut self, time: f64) -> f32;
 
-    /// Generate a batch of samples (more efficient)
+    /// Generate a single stereo audio frame at the given time
+    fn generate_stereo_sample(&mut self, time: f64) -> StereoFrame {
+        // Default implementation creates a mono sample and spreads it to stereo
+        StereoFrame::mono(self.generate_sample(time))
+    }
+
+    /// Generate a batch of mono samples (more efficient)
     fn generate_batch(&mut self, output: &mut [f32], start_time: f64);
+
+    /// Generate a batch of stereo samples (more efficient)
+    fn generate_stereo_batch(&mut self, output: &mut [StereoFrame], start_time: f64) {
+        // Default implementation generates mono and converts to stereo
+        let mut mono_buffer = vec![0.0; output.len()];
+        self.generate_batch(&mut mono_buffer, start_time);
+
+        for (i, sample) in mono_buffer.iter().enumerate() {
+            output[i] = StereoFrame::mono(*sample);
+        }
+    }
 
     /// Set the intensity level (0.0 to 1.0)
     fn set_intensity(&mut self, intensity: f32);

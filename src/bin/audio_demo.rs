@@ -1,6 +1,6 @@
-use mood_music_module::{MoodMusicModule, MoodConfig};
+use mood_music_module::{MoodMusicModule, MoodConfig, StereoFrame};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{FromSample, Sample, SizedSample};
+use cpal::{FromSample, SizedSample};
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -81,12 +81,21 @@ where
         let mut module_lock = module.lock().unwrap();
 
         for frame in data.chunks_mut(channels) {
-            let sample = module_lock.get_next_sample();
-            let sample_t = T::from_sample(sample);
-
-            // Fill all channels with the same mono sample
-            for channel_sample in frame.iter_mut() {
-                *channel_sample = sample_t;
+            if channels == 1 {
+                // Mono output - use mono sample
+                let sample = module_lock.get_next_sample();
+                frame[0] = T::from_sample(sample);
+            } else {
+                // Stereo or multi-channel output - use stereo sample
+                let stereo_sample = module_lock.get_next_stereo_sample();
+                frame[0] = T::from_sample(stereo_sample.left);  // Left channel
+                if frame.len() > 1 {
+                    frame[1] = T::from_sample(stereo_sample.right); // Right channel
+                }
+                // Fill any additional channels with the right channel
+                for ch in frame.iter_mut().skip(2) {
+                    *ch = T::from_sample(stereo_sample.right);
+                }
             }
         }
     };

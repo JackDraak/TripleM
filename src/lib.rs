@@ -26,7 +26,7 @@ pub mod error;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 
-pub use audio::AudioFrame;
+pub use audio::{AudioFrame, StereoFrame};
 pub use config::MoodConfig;
 pub use error::{MoodMusicError, Result};
 
@@ -119,6 +119,15 @@ impl MoodMusicModule {
         self.audio_pipeline.get_next_sample()
     }
 
+    /// Get the next stereo audio frame (for real-time stereo playback)
+    pub fn get_next_stereo_sample(&mut self) -> StereoFrame {
+        if !self.is_running() {
+            return StereoFrame::silence();
+        }
+
+        self.audio_pipeline.get_next_stereo_sample()
+    }
+
     /// Fill an audio buffer (more efficient for batch processing)
     pub fn fill_buffer(&mut self, buffer: &mut [f32]) {
         if !self.is_running() {
@@ -127,6 +136,16 @@ impl MoodMusicModule {
         }
 
         self.audio_pipeline.fill_buffer(buffer);
+    }
+
+    /// Fill a stereo audio buffer (more efficient for batch stereo processing)
+    pub fn fill_stereo_buffer(&mut self, buffer: &mut [StereoFrame]) {
+        if !self.is_running() {
+            buffer.fill(StereoFrame::silence());
+            return;
+        }
+
+        self.audio_pipeline.fill_stereo_buffer(buffer);
     }
 
     /// Get the sample rate

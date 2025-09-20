@@ -1,7 +1,7 @@
 use crate::config::MoodConfig;
 use crate::error::Result;
 use crate::generators::{MoodGenerator, GeneratorState};
-use crate::audio::utils;
+use crate::audio::{utils, StereoFrame};
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 
@@ -29,6 +29,12 @@ pub struct EnvironmentalGenerator {
     current_soundscape: usize,
     soundscape_timer: f32,
     soundscape_duration: f32,
+
+    // Stereo spatial parameters
+    stereo_pan: f32,           // Current pan position (-1.0 to 1.0)
+    stereo_width: f32,         // Stereo width factor (0.0 to 1.0)
+    pan_phase: f32,            // Phase for automatic panning
+    pan_frequency: f32,        // How fast the automatic panning moves
 }
 
 impl EnvironmentalGenerator {
@@ -36,6 +42,7 @@ impl EnvironmentalGenerator {
         let mut rng = StdRng::from_entropy();
         let wave_frequency = rng.gen_range(0.1..0.3);
         let wind_frequency = rng.gen_range(0.05..0.15);
+        let pan_frequency = rng.gen_range(0.01..0.03); // Very slow automatic panning
 
         Ok(Self {
             intensity: 0.0,
@@ -50,6 +57,10 @@ impl EnvironmentalGenerator {
             current_soundscape: 0,
             soundscape_timer: 0.0,
             soundscape_duration: config.pattern_cycle_lengths[0], // 3 minutes default
+            stereo_pan: 0.0,
+            stereo_width: 0.7, // Good stereo width for environmental sounds
+            pan_phase: 0.0,
+            pan_frequency,
         })
     }
 
@@ -141,6 +152,43 @@ impl EnvironmentalGenerator {
             self.wind_frequency = self.rng.gen_range(0.05..0.15);
         }
     }
+
+    /// Generate ocean waves with stereo enhancement
+    fn generate_ocean_waves_stereo(&mut self, time: f64) -> f32 {
+        self.generate_ocean_waves(time)
+    }
+
+    /// Generate wind with stereo enhancement
+    fn generate_wind_stereo(&mut self, time: f64) -> f32 {
+        self.generate_wind(time)
+    }
+
+    /// Generate forest sounds with stereo enhancement
+    fn generate_forest_stereo(&mut self, time: f64) -> f32 {
+        self.generate_forest(time)
+    }
+
+    /// Generate rain with stereo enhancement
+    fn generate_rain_stereo(&mut self, time: f64) -> f32 {
+        self.generate_rain(time)
+    }
+
+    /// Apply stereo positioning to a mono sample
+    fn apply_stereo_positioning(&self, mono_sample: f32) -> StereoFrame {
+        // Calculate pan position (centered around 0, -1 = full left, +1 = full right)
+        let pan = self.stereo_pan.clamp(-1.0, 1.0);
+
+        // Calculate left and right gains using constant power panning
+        let pan_radians = (pan + 1.0) * 0.5 * std::f32::consts::PI * 0.5; // Map -1..1 to 0..π/2
+        let left_gain = pan_radians.cos() * self.stereo_width + (1.0 - self.stereo_width);
+        let right_gain = pan_radians.sin() * self.stereo_width + (1.0 - self.stereo_width);
+
+        // Apply intensity scaling
+        let left_sample = mono_sample * left_gain * self.intensity;
+        let right_sample = mono_sample * right_gain * self.intensity;
+
+        StereoFrame::new(left_sample, right_sample)
+    }
 }
 
 impl MoodGenerator for EnvironmentalGenerator {
@@ -171,6 +219,41 @@ impl MoodGenerator for EnvironmentalGenerator {
         for (i, sample) in output.iter_mut().enumerate() {
             let time = start_time + i as f64 * sample_duration;
             *sample = self.generate_sample(time);
+        }
+    }
+
+    fn generate_stereo_sample(&mut self, time: f64) -> StereoFrame {
+        self.time = time;
+        let delta_time = 1.0 / self.sample_rate;
+        self.update_soundscape(delta_time);
+
+        if self.intensity <= 0.0 {
+            return StereoFrame::silence();
+        }
+
+        // Update stereo pan automation
+        self.pan_phase += self.pan_frequency * delta_time;
+        self.stereo_pan = (self.pan_phase * 2.0 * std::f32::consts::PI).sin() * 0.3; // Gentle automatic panning
+
+        // Generate the base mono sample
+        let mono_sample = match self.current_soundscape {
+            0 => self.generate_ocean_waves_stereo(time),
+            1 => self.generate_wind_stereo(time),
+            2 => self.generate_forest_stereo(time),
+            3 => self.generate_rain_stereo(time),
+            _ => 0.0,
+        };
+
+        // Apply stereo positioning
+        self.apply_stereo_positioning(mono_sample)
+    }
+
+    fn generate_stereo_batch(&mut self, output: &mut [StereoFrame], start_time: f64) {
+        let sample_duration = 1.0 / self.sample_rate as f64;
+
+        for (i, frame) in output.iter_mut().enumerate() {
+            let time = start_time + i as f64 * sample_duration;
+            *frame = self.generate_stereo_sample(time);
         }
     }
 

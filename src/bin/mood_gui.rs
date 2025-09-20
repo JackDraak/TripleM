@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use eframe::egui;
-use mood_music_module::{MoodMusicModule, MoodConfig};
+use mood_music_module::{MoodMusicModule, MoodConfig, StereoFrame};
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -156,9 +156,21 @@ impl MoodMusicApp {
 
                     if let Ok(mut module_lock) = module_clone.try_lock() {
                         for frame in data.chunks_mut(channels) {
-                            let sample = module_lock.get_next_sample();
-                            for channel in frame.iter_mut() {
-                                *channel = sample;
+                            if channels == 1 {
+                                // Mono output - use mono sample
+                                let sample = module_lock.get_next_sample();
+                                frame[0] = sample;
+                            } else {
+                                // Stereo or multi-channel output - use stereo sample
+                                let stereo_sample = module_lock.get_next_stereo_sample();
+                                frame[0] = stereo_sample.left;  // Left channel
+                                if frame.len() > 1 {
+                                    frame[1] = stereo_sample.right; // Right channel
+                                }
+                                // Fill any additional channels with the right channel
+                                for ch in frame.iter_mut().skip(2) {
+                                    *ch = stereo_sample.right;
+                                }
                             }
                         }
                     } else {

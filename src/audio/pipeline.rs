@@ -1,4 +1,4 @@
-use crate::audio::{OutputMixer, TransitionManager, AudioBuffer};
+use crate::audio::{OutputMixer, TransitionManager, AudioBuffer, StereoFrame};
 use crate::config::MoodConfig;
 use crate::error::Result;
 use crate::generators::{GeneratorPool, MoodGenerator};
@@ -114,6 +114,44 @@ impl AudioPipeline {
         output
     }
 
+    /// Get the next stereo audio sample
+    pub fn get_next_stereo_sample(&mut self) -> StereoFrame {
+        if !self.is_running() {
+            return StereoFrame::silence();
+        }
+
+        let start_time = std::time::Instant::now();
+
+        // Update transition state
+        self.transition_manager.update();
+
+        // Update mixer weights
+        self.mixer.set_weights(*self.transition_manager.current_weights());
+
+        // Update generator parameters based on current weights
+        self.update_generator_parameters();
+
+        // Generate stereo samples from all generators
+        let environmental = self.generators.environmental.generate_stereo_sample(self.current_time);
+        let gentle_melodic = self.generators.gentle_melodic.generate_stereo_sample(self.current_time);
+        let active_ambient = self.generators.active_ambient.generate_stereo_sample(self.current_time);
+        let edm_style = self.generators.edm_style.generate_stereo_sample(self.current_time);
+
+        // Mix the stereo samples
+        let output = self.mixer.mix_stereo_sample(environmental, gentle_melodic, active_ambient, edm_style);
+
+        // Update timing
+        self.advance_time();
+
+        // Update CPU load measurement
+        let processing_time = start_time.elapsed().as_secs_f32();
+        let target_time = 1.0 / self.config.sample_rate as f32;
+        let cpu_load = processing_time / target_time;
+        self.update_cpu_load(cpu_load);
+
+        output
+    }
+
     /// Fill an audio buffer (more efficient for batch processing)
     pub fn fill_buffer(&mut self, buffer: &mut [f32]) {
         if !self.is_running() {
@@ -152,6 +190,64 @@ impl AudioPipeline {
 
             // Mix the batch
             self.mixer.mix_buffer(
+                &env_batch[..chunk_size],
+                &gentle_batch[..chunk_size],
+                &active_batch[..chunk_size],
+                &edm_batch[..chunk_size],
+                chunk,
+            );
+
+            // Update timing for the batch
+            for _ in 0..chunk_size {
+                self.advance_time();
+            }
+        }
+
+        // Update CPU load measurement
+        let processing_time = start_time.elapsed().as_secs_f32();
+        let target_time = buffer.len() as f32 / self.config.sample_rate as f32;
+        let cpu_load = processing_time / target_time;
+        self.update_cpu_load(cpu_load);
+    }
+
+    /// Fill a stereo audio buffer (more efficient for batch stereo processing)
+    pub fn fill_stereo_buffer(&mut self, buffer: &mut [StereoFrame]) {
+        if !self.is_running() {
+            buffer.fill(StereoFrame::silence());
+            return;
+        }
+
+        let start_time = std::time::Instant::now();
+
+        // Generate samples in batches for better performance
+        let batch_size = 64.min(buffer.len());
+        let mut env_batch = vec![StereoFrame::silence(); batch_size];
+        let mut gentle_batch = vec![StereoFrame::silence(); batch_size];
+        let mut active_batch = vec![StereoFrame::silence(); batch_size];
+        let mut edm_batch = vec![StereoFrame::silence(); batch_size];
+
+        for chunk in buffer.chunks_mut(batch_size) {
+            let chunk_size = chunk.len();
+
+            // Update transition for this batch
+            for _ in 0..chunk_size {
+                self.transition_manager.update();
+            }
+
+            // Update mixer weights
+            self.mixer.set_weights(*self.transition_manager.current_weights());
+
+            // Update generator parameters
+            self.update_generator_parameters();
+
+            // Generate batch samples
+            self.generators.environmental.generate_stereo_batch(&mut env_batch[..chunk_size], self.current_time);
+            self.generators.gentle_melodic.generate_stereo_batch(&mut gentle_batch[..chunk_size], self.current_time);
+            self.generators.active_ambient.generate_stereo_batch(&mut active_batch[..chunk_size], self.current_time);
+            self.generators.edm_style.generate_stereo_batch(&mut edm_batch[..chunk_size], self.current_time);
+
+            // Mix the batch
+            self.mixer.mix_stereo_buffer(
                 &env_batch[..chunk_size],
                 &gentle_batch[..chunk_size],
                 &active_batch[..chunk_size],
