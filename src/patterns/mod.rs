@@ -3,6 +3,7 @@
 pub mod markov;
 pub mod genetic;
 pub mod rhythm;
+pub mod unified_rhythm;
 pub mod melody;
 pub mod harmony;
 
@@ -12,6 +13,7 @@ use crate::error::Result;
 pub use markov::MarkovChain;
 pub use genetic::{GeneticRhythm, RhythmChromosome, FitnessCriteria};
 pub use rhythm::{RhythmPattern, RhythmGenerator};
+pub use unified_rhythm::{UnifiedRhythmGenerator, AdaptivePattern, GrooveMorpher};
 pub use melody::{MelodyPattern, MelodyGenerator};
 pub use harmony::{HarmonyPattern, HarmonyGenerator};
 

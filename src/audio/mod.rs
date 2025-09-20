@@ -9,6 +9,8 @@ pub mod filters;
 pub mod synthesis;
 pub mod granular;
 pub mod drums;
+pub mod wavetables;
+pub mod additive;
 
 pub use pipeline::AudioPipeline;
 pub use buffer::AudioBuffer;
@@ -19,6 +21,8 @@ pub use filters::{StateVariableFilter, OnePoleFilter, MorphingFilter, BiquadFilt
 pub use synthesis::{Oscillator, OscillatorType, FmOperator, FmSynth, FmAlgorithm, AdsrEnvelope, SynthVoice, midi_to_frequency};
 pub use granular::GranularEngine;
 pub use drums::{DrumSynthesizer, EDMStyle, PercussionType};
+pub use wavetables::{MorphingWavetableSynth, WaveCharacter, WavetableBank};
+pub use additive::{AdditiveSynthesizer, PolyharmonicCharacter, HarmonicOscillator};
 
 /// Represents a single audio frame (mono sample)
 pub type AudioFrame = f32;
