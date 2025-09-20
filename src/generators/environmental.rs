@@ -188,25 +188,37 @@ impl EnvironmentalGenerator {
         // Secondary wave pattern (8-12 seconds)
         let secondary_wave = (self.wave_layers[1] * 2.0 * std::f32::consts::PI).sin();
 
-        // Research-based asymmetric envelope: slow build (6-8 sec), sharp peak (1-2 sec), medium decay (3-5 sec)
+        // Natural wave envelope with much more gradual rolloff and wider dynamic range
         let wave_phase = main_wave_cycle * 0.5 + 0.5; // 0-1 range
 
-        let wave_envelope = if wave_phase < 0.6 {
-            // Slow build phase (60% of cycle) - gradual exponential curve
-            (wave_phase / 0.6).powf(0.4) * 0.3 // Gentle exponential build
-        } else if wave_phase < 0.8 {
-            // Sharp crescendo phase (20% of cycle) - research shows brief, intense peak
-            let peak_progress = (wave_phase - 0.6) / 0.2;
-            0.3 + peak_progress.powf(1.8) * 0.7 // Sharp rise to peak
+        let wave_envelope = if wave_phase < 0.5 {
+            // Very slow build phase (50% of cycle) - subtle exponential curve
+            (wave_phase / 0.5).powf(0.3) * 0.2 // Very gentle build
+        } else if wave_phase < 0.65 {
+            // Crescendo phase (15% of cycle) - moderate rise to peak
+            let peak_progress = (wave_phase - 0.5) / 0.15;
+            0.2 + peak_progress.powf(1.5) * 0.8 // Rise to peak
         } else {
-            // Decay phase (20% of cycle) - medium-speed exponential decay
-            let decay_progress = (wave_phase - 0.8) / 0.2;
-            1.0 * (1.0 - decay_progress).powf(1.2) // Exponential decay
+            // Very long, gradual decay phase (35% of cycle) - natural rolloff
+            let decay_progress = (wave_phase - 0.65) / 0.35;
+
+            // Multi-stage decay for natural feel
+            if decay_progress < 0.3 {
+                // Initial decay - moderate
+                1.0 * (1.0 - (decay_progress / 0.3) * 0.4) // Drop to 60%
+            } else if decay_progress < 0.7 {
+                // Middle decay - slower
+                0.6 * (1.0 - ((decay_progress - 0.3) / 0.4).powf(0.6) * 0.5) // Drop to 30%
+            } else {
+                // Final decay - very gradual tail
+                0.3 * (1.0 - ((decay_progress - 0.7) / 0.3).powf(0.4))  // Gradual fade to 0
+            }
         };
 
-        // Base ocean intensity
-        let base_intensity = 0.12; // Calm baseline
-        let current_intensity = base_intensity + wave_envelope * 0.6;
+        // Much wider dynamic range
+        let base_intensity = 0.06; // Very quiet baseline
+        let max_intensity = 0.8; // Much higher peaks
+        let current_intensity = base_intensity + wave_envelope * max_intensity;
 
         // Wave approach panning (slow pan from left to right as wave builds and crashes)
         let wave_pan_cycle = self.wave_layers[2] * 2.0 * std::f32::consts::PI;
@@ -244,8 +256,8 @@ impl EnvironmentalGenerator {
         right_sample += surface_white * surface_envelope * current_intensity * (0.7 - approach_pan * 0.2);
 
         // Layer 4: Crescendo foam/splash with pink noise (research: bubble activity 1-20 kHz)
-        if wave_envelope > 0.6 {
-            let foam_intensity = (wave_envelope - 0.6) / 0.4; // Proportional to crescendo
+        if wave_envelope > 0.3 { // Start foam earlier for more natural buildup
+            let foam_intensity = ((wave_envelope - 0.3) / 0.7).clamp(0.0, 1.0); // Proportional to crescendo
 
             // Mix pink noise for realistic frequency content
             let foam_sound = crescendo_pink * 0.8 + base_white_noise * 0.2;
@@ -255,9 +267,14 @@ impl EnvironmentalGenerator {
             let left_splash_gain = (1.0 - splash_pan.clamp(-1.0, 1.0)) * 0.5;
             let right_splash_gain = (1.0 + splash_pan.clamp(-1.0, 1.0)) * 0.5;
 
-            left_sample += foam_sound * foam_intensity * left_splash_gain * 0.7;
-            right_sample += foam_sound * foam_intensity * right_splash_gain * 0.7;
+            left_sample += foam_sound * foam_intensity * left_splash_gain * 0.6;
+            right_sample += foam_sound * foam_intensity * right_splash_gain * 0.6;
         }
+
+        // Add natural variation to each wave (some waves are bigger/smaller)
+        let wave_variation = (self.wave_layers[3] * 1.7).sin() * 0.15 + 1.0; // ±15% variation
+        left_sample *= wave_variation;
+        right_sample *= wave_variation;
 
         // Final pink noise processing for natural ocean character
         let final_left = utils::pink_noise_simple(left_sample, &mut self.pink_noise_state);
