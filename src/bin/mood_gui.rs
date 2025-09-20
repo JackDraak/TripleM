@@ -6,9 +6,11 @@ use mood_music_module::{MoodMusicModule, MoodConfig};
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([400.0, 300.0])
+            .with_inner_size([450.0, 250.0])
+            .with_min_inner_size([400.0, 220.0])
+            .with_max_inner_size([600.0, 400.0])
             .with_title("🎵 Mood Music Controller")
-            .with_resizable(false),
+            .with_resizable(true),
         ..Default::default()
     };
 
@@ -233,143 +235,151 @@ impl eframe::App for MoodMusicApp {
         ctx.request_repaint_after(Duration::from_millis(100));
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("🎵 Mood Music Controller");
-            ui.separator();
-
-            // Error display
-            if let Some(error) = &self.error_message {
-                ui.colored_label(egui::Color32::RED, format!("❌ {}", error));
-                ui.separator();
-            }
-
-            // Play/Stop button
+            // Compact header
             ui.horizontal(|ui| {
-                let button_text = if self.is_playing { "⏹ Stop" } else { "▶ Play" };
-                if ui.button(button_text).clicked() {
-                    if self.is_playing {
-                        self.stop_audio();
+                ui.heading("🎵 Mood Music");
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    // Exit button
+                    if ui.small_button("❌").on_hover_text("Close application").clicked() {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+
+                    // Play/Stop button
+                    let button_text = if self.is_playing { "⏹" } else { "▶" };
+                    let button_color = if self.is_playing {
+                        egui::Color32::from_rgb(220, 100, 100)
                     } else {
-                        self.start_audio();
-                    }
-                }
+                        egui::Color32::from_rgb(100, 220, 100)
+                    };
 
-                ui.label(if self.is_playing {
-                    "🔊 Playing"
-                } else {
-                    "🔇 Stopped"
-                });
-            });
-
-            ui.separator();
-
-            // Mood slider
-            ui.vertical(|ui| {
-                ui.label("🎭 Mood");
-                ui.horizontal(|ui| {
-                    ui.label("0.0");
-                    let mood_response = ui.add(
-                        egui::Slider::new(&mut self.mood_value, 0.0..=1.0)
-                            .step_by(0.01)
-                            .show_value(false)
-                    );
-                    ui.label("1.0");
-
-                    if mood_response.changed() {
-                        self.update_mood(self.mood_value);
-                    }
-                });
-
-                ui.horizontal(|ui| {
-                    ui.label(format!("Current: {:.2}", self.mood_value));
-                    ui.separator();
-                    ui.strong(&self.current_mood_name);
-                });
-
-                ui.label(self.get_mood_description(self.mood_value));
-            });
-
-            ui.separator();
-
-            // Volume slider
-            ui.vertical(|ui| {
-                ui.label("🔊 Volume");
-                ui.horizontal(|ui| {
-                    ui.label("🔇");
-                    let volume_response = ui.add(
-                        egui::Slider::new(&mut self.volume, 0.0..=1.0)
-                            .step_by(0.01)
-                            .show_value(false)
-                    );
-                    ui.label("🔊");
-
-                    if volume_response.changed() {
-                        self.update_volume(self.volume);
-                    }
-                });
-
-                ui.label(format!("Level: {:.0}%", self.volume * 100.0));
-            });
-
-            ui.separator();
-
-            // Generator status display
-            if self.is_playing && !self.generator_states.is_empty() {
-                ui.label("🎹 Generator Status");
-
-                for state in &self.generator_states {
-                    ui.horizontal(|ui| {
-                        let color = if state.is_active {
-                            egui::Color32::GREEN
+                    if ui.add(egui::Button::new(button_text).fill(button_color))
+                        .on_hover_text(if self.is_playing { "Stop playback" } else { "Start playback" })
+                        .clicked()
+                    {
+                        if self.is_playing {
+                            self.stop_audio();
                         } else {
-                            egui::Color32::GRAY
-                        };
+                            self.start_audio();
+                        }
+                    }
+                });
+            });
 
-                        ui.colored_label(color, &state.name);
-                        ui.separator();
-
-                        // Intensity bar
-                        let bar_width = 60.0;
-                        let bar_height = 8.0;
-                        let (rect, _) = ui.allocate_exact_size(
-                            egui::Vec2::new(bar_width, bar_height),
-                            egui::Sense::hover()
-                        );
-
-                        ui.painter().rect_filled(
-                            rect,
-                            2.0,
-                            egui::Color32::DARK_GRAY
-                        );
-
-                        let fill_width = rect.width() * state.intensity;
-                        let fill_rect = egui::Rect::from_min_size(
-                            rect.min,
-                            egui::Vec2::new(fill_width, rect.height())
-                        );
-
-                        ui.painter().rect_filled(
-                            fill_rect,
-                            2.0,
-                            if state.is_active { egui::Color32::GREEN } else { egui::Color32::GRAY }
-                        );
-
-                        ui.label(format!("{:.0}%", state.intensity * 100.0));
-                    });
-                }
+            // Error display (compact)
+            if let Some(error) = &self.error_message {
+                ui.small(format!("❌ {}", error));
             }
 
-            ui.separator();
+            ui.add_space(5.0);
 
-            // Instructions
-            ui.small("🎵 Adjust mood (0.0-1.0) to switch between music styles:");
-            ui.small("   • 0.0-0.25: Environmental sounds");
-            ui.small("   • 0.25-0.5: Gentle melodic music");
-            ui.small("   • 0.5-0.75: Active ambient music");
-            ui.small("   • 0.75-1.0: EDM-style music");
+            // Main content in scrollable area
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                // Mood slider (compact)
+                ui.horizontal(|ui| {
+                    ui.label("🎭");
+                    ui.vertical(|ui| {
+                        let mood_response = ui.add(
+                            egui::Slider::new(&mut self.mood_value, 0.0..=1.0)
+                                .step_by(0.01)
+                                .show_value(false)
+                                .text("Mood")
+                        );
+
+                        if mood_response.changed() {
+                            self.update_mood(self.mood_value);
+                        }
+
+                        ui.horizontal(|ui| {
+                            ui.small(format!("{:.2}", self.mood_value));
+                            ui.separator();
+                            ui.small(&self.current_mood_name);
+                        });
+                    });
+                });
+
+                ui.add_space(3.0);
+
+                // Volume slider (compact)
+                ui.horizontal(|ui| {
+                    ui.label("🔊");
+                    ui.vertical(|ui| {
+                        let volume_response = ui.add(
+                            egui::Slider::new(&mut self.volume, 0.0..=1.0)
+                                .step_by(0.01)
+                                .show_value(false)
+                                .text("Volume")
+                        );
+
+                        if volume_response.changed() {
+                            self.update_volume(self.volume);
+                        }
+
+                        ui.small(format!("{:.0}%", self.volume * 100.0));
+                    });
+                });
+
+                ui.add_space(5.0);
+
+                // Generator status display (compact)
+                if self.is_playing && !self.generator_states.is_empty() {
+                    ui.small("🎹 Generators:");
+
+                    for state in &self.generator_states {
+                        ui.horizontal(|ui| {
+                            let color = if state.is_active {
+                                egui::Color32::GREEN
+                            } else {
+                                egui::Color32::GRAY
+                            };
+
+                            ui.small_button(&state.name[..3]).on_hover_text(&state.name); // Show 3-letter abbreviation
+
+                            // Mini intensity bar
+                            let bar_width = 40.0;
+                            let bar_height = 6.0;
+                            let (rect, _) = ui.allocate_exact_size(
+                                egui::Vec2::new(bar_width, bar_height),
+                                egui::Sense::hover()
+                            );
+
+                            ui.painter().rect_filled(rect, 1.0, egui::Color32::DARK_GRAY);
+
+                            let fill_width = rect.width() * state.intensity;
+                            let fill_rect = egui::Rect::from_min_size(
+                                rect.min,
+                                egui::Vec2::new(fill_width, rect.height())
+                            );
+
+                            ui.painter().rect_filled(fill_rect, 1.0, color);
+                            ui.small(format!("{:.0}%", state.intensity * 100.0));
+                        });
+                    }
+                }
+
+                ui.add_space(5.0);
+
+                // Compact instructions
+                ui.small("🎵 Mood ranges:");
+                ui.horizontal(|ui| {
+                    ui.small("0.0-0.25: Environmental");
+                    ui.separator();
+                    ui.small("0.25-0.5: Melodic");
+                });
+                ui.horizontal(|ui| {
+                    ui.small("0.5-0.75: Ambient");
+                    ui.separator();
+                    ui.small("0.75-1.0: EDM");
+                });
+            }); // End of ScrollArea
         });
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        println!("🎵 Shutting down Mood Music Controller...");
         self.stop_audio();
+
+        // Give audio thread time to clean up
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        println!("✅ Audio stopped cleanly");
     }
 }
