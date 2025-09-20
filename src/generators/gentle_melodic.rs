@@ -1,46 +1,89 @@
 use crate::config::MoodConfig;
 use crate::error::Result;
 use crate::generators::{MoodGenerator, GeneratorState};
-use crate::patterns::markov::MarkovChain;
+use crate::patterns::markov::{MarkovChain, presets};
+use crate::audio::{NaturalVariation, StateVariableFilter, FilterType, FmSynth, FmAlgorithm, AdsrEnvelope, midi_to_frequency};
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 
-/// Gentle melodic music generator (0.25-0.5 mood range)
-/// Generates relaxing spa-like music with gentle melodies and harmonies
+/// Enhanced gentle melodic music generator (0.25-0.5 mood range)
+/// Generates sophisticated spa-like music with FM synthesis, voice leading, and natural variation
 #[derive(Debug)]
 pub struct GentleMelodicGenerator {
     intensity: f32,
     sample_rate: f32,
     time: f64,
 
-    // Harmony generation
-    current_chord: Vec<f32>,          // Current chord frequencies
-    chord_progression: Vec<Vec<u8>>,  // Chord progression in MIDI notes
+    // Enhanced harmony generation with voice leading
+    chord_voices: Vec<HarmonyVoice>,  // Individual FM voices for harmony
+    chord_progression: Vec<Vec<u8>>,  // Sophisticated chord progression
     chord_index: usize,
     chord_timer: f32,
-    chord_duration: f32,              // Duration of each chord in seconds
+    chord_duration: f32,
 
-    // Melody generation
+    // Enhanced melody generation
     melody_chain: MarkovChain<u8>,
-    current_melody_note: u8,
+    melody_voice: MelodyVoice,
     melody_timer: f32,
     melody_note_duration: f32,
 
-    // Key modulation (every 2 minutes)
-    current_key: u8,                  // Root note of current key
+    // Key modulation system
+    current_key: u8,
     key_timer: f32,
-    key_change_duration: f32,         // 2 minutes = 120 seconds
+    key_change_duration: f32,
 
-    // Oscillator phases for smooth synthesis
-    chord_phases: Vec<f32>,
-    melody_phase: f32,
+    // Natural variation for organic evolution
+    variation: NaturalVariation,
+
+    // Advanced filtering for ambient textures
+    harmony_filter: StateVariableFilter,
+    melody_filter: StateVariableFilter,
+
+    // Ambient texture layer
+    ambient_layer: AmbientTextureLayer,
 
     // Random number generator
     rng: StdRng,
+}
 
-    // Volume envelopes for smooth transitions
-    chord_envelope: f32,
-    melody_envelope: f32,
+/// Individual harmony voice with FM synthesis
+#[derive(Debug, Clone)]
+struct HarmonyVoice {
+    fm_synth: FmSynth,
+    envelope: AdsrEnvelope,
+    target_note: u8,
+    current_note: u8,
+    is_active: bool,
+    voice_leading_timer: f32,
+    voice_leading_duration: f32,
+}
+
+/// Enhanced melody voice with expression
+#[derive(Debug, Clone)]
+struct MelodyVoice {
+    fm_synth: FmSynth,
+    envelope: AdsrEnvelope,
+    current_note: u8,
+    expression_lfo_phase: f32,  // For vibrato and expression
+    is_active: bool,
+}
+
+/// Ambient texture layer for atmospheric depth
+#[derive(Debug, Clone)]
+struct AmbientTextureLayer {
+    texture_oscillators: Vec<TextureOscillator>,
+    texture_filter: StateVariableFilter,
+    texture_timer: f32,
+    texture_evolution_duration: f32,
+}
+
+/// Individual texture oscillator for ambient layer
+#[derive(Debug, Clone)]
+struct TextureOscillator {
+    phase: f32,
+    frequency: f32,
+    amplitude: f32,
+    detune_amount: f32,
 }
 
 impl GentleMelodicGenerator {

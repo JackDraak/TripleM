@@ -248,14 +248,26 @@ where
 pub mod presets {
     use super::*;
 
-    /// Create a Markov chain trained on common major scale progressions
-    pub fn major_scale_melody() -> NoteMarkovChain {
+    /// Create a Markov chain trained on sophisticated melodic patterns for gentle music
+    pub fn gentle_melodies() -> NoteMarkovChain {
         let sequences: &[&[u8]] = &[
-            &[60, 62, 64, 65, 67, 69, 71, 72], // C major scale up
-            &[72, 71, 69, 67, 65, 64, 62, 60], // C major scale down
-            &[60, 64, 67, 72, 67, 64, 60],     // C major arpeggio
-            &[60, 65, 67, 72, 69, 65, 60],     // Common melody pattern
-            &[67, 69, 71, 72, 71, 69, 67, 65], // G to E pattern
+            // Pentatonic-based gentle melodies (C pentatonic: C D E G A)
+            &[60, 62, 64, 67, 69, 67, 64, 62, 60], // Pentatonic scale flow
+            &[69, 67, 64, 62, 60, 62, 64, 67, 69], // Mirror pattern
+            &[60, 64, 67, 69, 72, 69, 67, 64, 60], // Octave arpeggios
+
+            // Gentle interval patterns
+            &[60, 65, 64, 69, 67, 72, 67, 64, 60], // Perfect fourths and fifths
+            &[72, 67, 69, 64, 65, 60, 64, 67, 72], // Descending then ascending
+
+            // Spa-like flowing patterns
+            &[60, 62, 67, 65, 69, 67, 64, 62, 60], // Gentle waves
+            &[67, 64, 69, 65, 72, 67, 69, 64, 67], // Floating melodies
+            &[60, 64, 60, 67, 64, 69, 67, 64, 60], // Repetitive meditation
+
+            // Minor pentatonic for warmth (A minor pentatonic: A C D E G)
+            &[57, 60, 62, 64, 67, 64, 62, 60, 57], // Am pentatonic
+            &[67, 64, 62, 60, 57, 60, 62, 64, 67], // Reverse flow
         ];
 
         MarkovBuilder::new(2)
@@ -263,29 +275,28 @@ pub mod presets {
             .build()
     }
 
-    /// Create a Markov chain for simple rhythm patterns
-    pub fn simple_rhythm() -> RhythmMarkovChain {
-        let sequences: &[&[bool]] = &[
-            &[true, false, true, false, true, false, true, false], // Basic beat
-            &[true, false, false, true, false, false, true, false], // Syncopated
-            &[true, true, false, true, false, true, false, false], // Complex
-            &[true, false, true, true, false, true, false, false], // Variation
-        ];
-
-        MarkovBuilder::new(2)
-            .add_training_data(sequences)
-            .build()
-    }
-
-    /// Create a Markov chain for chord progressions (Roman numeral analysis)
-    pub fn chord_progressions() -> ChordMarkovChain {
+    /// Create sophisticated chord progression patterns for ambient music
+    pub fn sophisticated_chord_progressions() -> ChordMarkovChain {
         // Using scale degrees: 0=I, 1=ii, 2=iii, 3=IV, 4=V, 5=vi, 6=vii°
         let sequences: &[&[u8]] = &[
-            &[0, 3, 4, 0], // I-IV-V-I
-            &[0, 5, 3, 4], // I-vi-IV-V
-            &[0, 1, 4, 0], // I-ii-V-I
-            &[5, 3, 0, 4], // vi-IV-I-V
-            &[0, 4, 5, 3], // I-V-vi-IV
+            // Neo-soul and jazz-influenced progressions
+            &[0, 5, 3, 4, 0], // I-vi-IV-V-I (classic)
+            &[0, 2, 5, 3, 4, 0], // I-iii-vi-IV-V-I (extended)
+            &[5, 3, 0, 4, 5], // vi-IV-I-V-vi (pop progression)
+
+            // Modal progressions for ambient feel
+            &[0, 6, 3, 0], // I-vii°-IV-I (modal flavor)
+            &[3, 0, 4, 5], // IV-I-V-vi (Plagal motion)
+            &[0, 1, 3, 1, 0], // I-ii-IV-ii-I (sus feel)
+
+            // Complex jazz-inspired movements
+            &[0, 2, 1, 4, 0], // I-iii-ii-V-I (jazz turnaround)
+            &[5, 1, 4, 0], // vi-ii-V-I (jazz standard)
+            &[0, 6, 3, 6, 0], // I-vii°-IV-vii°-I (chromatic)
+
+            // Ambient/ethereal progressions
+            &[0, 4, 3, 5, 0], // I-V-IV-vi-I (open voicing feel)
+            &[3, 5, 0, 1, 3], // IV-vi-I-ii-IV (circular)
         ];
 
         MarkovBuilder::new(2)
@@ -293,33 +304,184 @@ pub mod presets {
             .build()
     }
 
-    /// Create a Markov chain for ambient environmental patterns
-    pub fn ambient_patterns() -> NoteMarkovChain {
-        let sequences: &[&[u8]] = &[
-            &[60, 60, 64, 64, 67, 67, 64, 60], // Gentle repetition
-            &[55, 60, 64, 67, 64, 60, 55],     // Lower ambient
-            &[72, 69, 67, 64, 67, 69, 72],     // Higher ambient
-            &[60, 67, 60, 64, 60, 67, 60],     // Simple pattern
+    /// Create sophisticated rhythm patterns for productivity music
+    pub fn productivity_rhythms() -> RhythmMarkovChain {
+        let sequences: &[&[bool]] = &[
+            // Steady but engaging 4/4 patterns
+            &[true, false, true, false, true, false, true, false], // Basic steady
+            &[true, false, false, true, false, true, false, false], // Slight syncopation
+            &[true, true, false, true, false, false, true, false], // Double hit start
+
+            // Polyrhythmic-inspired patterns (3 against 4 feel)
+            &[true, false, false, true, false, true, false, true], // 3+3+2 feeling
+            &[true, false, true, false, false, true, false, true], // Offset pattern
+
+            // Focus-enhancing patterns (research shows certain rhythms aid concentration)
+            &[true, false, true, true, false, false, true, false], // Strong-weak-strong-strong pattern
+            &[true, false, false, false, true, false, true, false], // Spaced for thinking
+
+            // Subtle complexity for long listening
+            &[true, false, true, false, true, true, false, false], // Varied ending
+            &[true, true, false, false, true, false, true, true], // Clustered beats
         ];
 
-        MarkovBuilder::new(1) // Lower order for more randomness
+        MarkovBuilder::new(3) // Higher order for more structured patterns
             .add_training_data(sequences)
             .build()
     }
 
-    /// Create a Markov chain for EDM-style patterns
-    pub fn edm_patterns() -> NoteMarkovChain {
-        let sequences: &[&[u8]] = &[
-            &[36, 36, 43, 36, 48, 43, 36, 48], // Bass-heavy pattern
-            &[60, 67, 72, 79, 72, 67, 60, 55], // Lead pattern
-            &[48, 48, 55, 55, 60, 60, 67, 67], // Stepped progression
-            &[72, 84, 72, 79, 72, 84, 72, 76], // High energy
+    /// Create complex EDM rhythm patterns with evolution potential
+    pub fn edm_complex_rhythms() -> RhythmMarkovChain {
+        let sequences: &[&[bool]] = &[
+            // Standard EDM kick patterns
+            &[true, false, false, false, true, false, false, false], // Four-on-floor
+            &[true, false, false, true, false, false, true, false], // Broken kick
+
+            // Hi-hat patterns
+            &[false, false, true, false, false, false, true, false], // Upbeat hats
+            &[false, true, false, true, false, true, false, true], // Rapid hats
+            &[true, true, false, true, true, false, true, false], // Complex hats
+
+            // Snare patterns
+            &[false, false, false, false, true, false, false, false], // Standard snare
+            &[false, false, true, false, false, false, true, false], // Double snare
+
+            // Complex polyrhythmic patterns for builds
+            &[true, false, true, true, false, true, false, true], // Dense pattern
+            &[true, true, false, false, true, false, true, true], // Clustered
+            &[true, false, false, true, true, false, false, true], // Syncopated
+
+            // Breakdown patterns
+            &[true, false, false, false, false, false, false, false], // Minimal
+            &[true, false, true, false, false, false, false, false], // Sparse
         ];
 
-        MarkovBuilder::new(3) // Higher order for more structure
+        MarkovBuilder::new(4) // Very high order for structured EDM feel
             .add_training_data(sequences)
             .build()
     }
+
+    /// Create bass line patterns specifically for EDM
+    pub fn edm_bass_patterns() -> NoteMarkovChain {
+        let sequences: &[&[u8]] = &[
+            // Root-fifth patterns in different keys
+            &[36, 36, 43, 36, 36, 43, 36, 43], // C1-G1 pattern
+            &[38, 38, 45, 38, 38, 45, 38, 45], // D1-A1 pattern
+            &[41, 41, 48, 41, 41, 48, 41, 48], // F1-C2 pattern
+            &[43, 43, 50, 43, 43, 50, 43, 50], // G1-D2 pattern
+
+            // More complex bass patterns with passing tones
+            &[36, 41, 43, 48, 43, 41, 36, 31], // Chromatic movement
+            &[36, 38, 36, 43, 41, 38, 36, 34], // Scalar movement
+            &[36, 48, 43, 55, 48, 43, 36, 24], // Octave jumps
+
+            // Progressive house style patterns
+            &[36, 43, 48, 43, 41, 48, 43, 36], // Complex progression
+            &[36, 36, 41, 43, 43, 48, 43, 41], // Building pattern
+            &[24, 36, 43, 48, 55, 48, 43, 36], // Wide range pattern
+
+            // Wobble bass note patterns
+            &[36, 36, 36, 43, 36, 36, 36, 43], // Minimal wobble
+            &[36, 38, 36, 41, 36, 43, 36, 41], // Chromatic wobble
+        ];
+
+        MarkovBuilder::new(3)
+            .add_training_data(sequences)
+            .build()
+    }
+
+    /// Create arpeggio patterns for different moods
+    pub fn arpeggio_patterns(mood_type: ArpeggioMood) -> NoteMarkovChain {
+        let sequences: &[&[u8]] = match mood_type {
+            ArpeggioMood::Gentle => &[
+                // Gentle, flowing arpeggios
+                &[60, 64, 67, 72, 67, 64, 60, 55], // C major triad flow
+                &[57, 60, 64, 69, 64, 60, 57, 52], // A minor triad flow
+                &[65, 69, 72, 77, 72, 69, 65, 60], // F major triad flow
+                &[60, 65, 69, 72, 69, 65, 60, 57], // Mixed intervals
+                &[67, 71, 74, 79, 74, 71, 67, 64], // G major extended
+            ],
+            ArpeggioMood::Active => &[
+                // More energetic, productivity-focused patterns
+                &[72, 76, 79, 84, 79, 76, 72, 67], // Higher register active
+                &[60, 64, 67, 72, 76, 72, 67, 64], // Ascending energy
+                &[84, 79, 76, 72, 76, 79, 84, 88], // High energy pattern
+                &[48, 60, 64, 67, 72, 67, 64, 60], // Wide range flow
+                &[72, 67, 76, 72, 79, 76, 72, 67], // Interlocking pattern
+            ],
+            ArpeggioMood::Electronic => &[
+                // Sharp, digital-feeling patterns
+                &[60, 72, 84, 96, 84, 72, 60, 48], // Octave jumps
+                &[36, 48, 60, 72, 60, 48, 36, 24], // Bass to treble
+                &[72, 84, 72, 96, 84, 72, 96, 84], // Electronic bounce
+                &[48, 60, 72, 84, 96, 84, 72, 60], // Rising energy
+                &[60, 67, 72, 79, 84, 79, 72, 67], // Fifths-based pattern
+            ],
+        };
+
+        let order = match mood_type {
+            ArpeggioMood::Gentle => 2,      // More predictable
+            ArpeggioMood::Active => 2,      // Balanced
+            ArpeggioMood::Electronic => 3,  // More structured
+        };
+
+        MarkovBuilder::new(order)
+            .add_training_data(sequences)
+            .build()
+    }
+
+    /// Enhanced melody patterns with more musical sophistication
+    pub fn enhanced_melodies(style: MelodyStyle) -> NoteMarkovChain {
+        let sequences: &[&[u8]] = match style {
+            MelodyStyle::Modal => &[
+                // Dorian mode patterns (D dorian: D E F G A B C D)
+                &[62, 64, 65, 67, 69, 71, 72, 74], // D dorian ascending
+                &[74, 72, 71, 69, 67, 65, 64, 62], // D dorian descending
+                &[62, 67, 69, 74, 72, 67, 65, 62], // Dorian leap patterns
+
+                // Mixolydian patterns (G mixolydian: G A B C D E F G)
+                &[67, 69, 71, 72, 74, 76, 77, 79], // G mixolydian
+                &[67, 72, 74, 77, 76, 72, 69, 67], // Mixolydian arpeggios
+            ],
+            MelodyStyle::Pentatonic => &[
+                // Major pentatonic variations
+                &[60, 62, 64, 67, 69, 72, 69, 67, 64, 62, 60], // Extended pentatonic
+                &[69, 72, 74, 77, 81, 77, 74, 72, 69], // High register pentatonic
+                &[48, 50, 52, 55, 57, 60, 57, 55, 52, 50, 48], // Low register
+
+                // Minor pentatonic patterns
+                &[57, 60, 62, 64, 67, 69, 67, 64, 62, 60, 57], // A minor pentatonic
+                &[69, 72, 74, 76, 79, 81, 79, 76, 74, 72, 69], // High minor pentatonic
+            ],
+            MelodyStyle::Chromatic => &[
+                // Sophisticated chromatic passages
+                &[60, 61, 62, 63, 64, 65, 66, 67], // Chromatic ascent
+                &[72, 71, 70, 69, 68, 67, 66, 65], // Chromatic descent
+                &[60, 63, 61, 64, 62, 65, 63, 66], // Chromatic weaving
+                &[67, 66, 68, 67, 69, 68, 70, 69], // Chromatic oscillation
+            ],
+        };
+
+        MarkovBuilder::new(2)
+            .add_training_data(sequences)
+            .build()
+    }
+}
+
+/// Mood types for arpeggio patterns
+#[derive(Debug, Clone, Copy)]
+pub enum ArpeggioMood {
+    Gentle,
+    Active,
+    Electronic,
+}
+
+/// Melody style categories
+#[derive(Debug, Clone, Copy)]
+pub enum MelodyStyle {
+    Modal,
+    Pentatonic,
+    Chromatic,
 }
 
 #[cfg(test)]
