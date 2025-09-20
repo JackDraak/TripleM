@@ -52,7 +52,7 @@ impl EnvironmentalGenerator {
         let mut rng = StdRng::from_entropy();
         let wave_frequency = rng.gen_range(0.1..0.3);
         let wind_frequency = rng.gen_range(0.05..0.15);
-        let pan_frequency = rng.gen_range(0.05..0.12); // Much faster panning for dramatic effect
+        let pan_frequency = rng.gen_range(0.008..0.02); // Much slower, realistic ocean rhythm
 
         Ok(Self {
             intensity: 0.0,
@@ -78,9 +78,9 @@ impl EnvironmentalGenerator {
             left_layer_phase: 0.0,
             right_layer_phase: std::f32::consts::PI, // Start out of phase
 
-            // Initialize ocean wave layers
+            // Initialize ocean wave layers with realistic speeds
             wave_layers: [0.0, 0.0, 0.0, 0.0],
-            wave_speeds: [0.8, 1.2, 1.7, 2.3], // Different speeds for layered waves
+            wave_speeds: [0.15, 0.25, 0.35, 0.6], // Much slower, more realistic ocean rhythm
         })
     }
 
@@ -173,52 +173,81 @@ impl EnvironmentalGenerator {
         }
     }
 
-    /// Generate ocean waves with dramatic stereo enhancement
-    fn generate_ocean_waves_stereo(&mut self, time: f64) -> StereoFrame {
+    /// Generate realistic ocean waves with natural rhythm and dynamics
+    fn generate_ocean_waves_stereo(&mut self, _time: f64) -> StereoFrame {
         let delta_time = 1.0 / self.sample_rate;
 
-        // Update wave layers with different speeds
+        // Update wave layers with realistic, slow speeds
         for i in 0..4 {
             self.wave_layers[i] += self.wave_speeds[i] * delta_time;
         }
 
-        // Generate multiple layered wave samples using white noise
+        // Calculate wave intensity using realistic ocean patterns
+        // Main wave cycle (very slow, 20-40 second periods)
+        let main_wave_cycle = (self.wave_layers[0] * 2.0 * std::f32::consts::PI).sin();
+
+        // Secondary wave pattern (medium period, 8-15 seconds)
+        let secondary_wave = (self.wave_layers[1] * 2.0 * std::f32::consts::PI).sin();
+
+        // Create realistic wave envelope: mostly calm with brief crescendos
+        let base_intensity = 0.15; // Calm baseline
+        let wave_build = (main_wave_cycle * 0.5 + 0.5).powf(3.0); // Exponential build
+        let crescendo_factor = if wave_build > 0.7 {
+            // Brief, sharp crescendo like real waves
+            ((wave_build - 0.7) / 0.3).powf(2.0) * 0.8
+        } else {
+            0.0
+        };
+
+        let current_intensity = base_intensity + crescendo_factor;
+
+        // Generate base ocean noise
+        let base_noise = utils::white_noise(&mut self.rng);
+
+        // Generate multi-layered stereo ocean sound
         let mut left_sample = 0.0;
         let mut right_sample = 0.0;
 
-        // Layer 1: Deep ocean waves (low frequency, centered)
-        let wave1 = utils::white_noise(&mut self.rng) * 0.3;
-        let wave1_filtered = wave1 * (self.wave_layers[0] * 0.5).sin();
-        left_sample += wave1_filtered * 0.6;
-        right_sample += wave1_filtered * 0.6;
+        // Layer 1: Deep ocean swell (centered, constant)
+        let deep_swell = base_noise * 0.3 * current_intensity * 0.8;
+        left_sample += deep_swell;
+        right_sample += deep_swell;
 
-        // Layer 2: Mid waves (panned left)
-        let wave2 = utils::white_noise(&mut self.rng) * 0.4;
-        let wave2_filtered = wave2 * (self.wave_layers[1] * 0.8).sin();
-        left_sample += wave2_filtered * 0.9;  // Stronger on left
-        right_sample += wave2_filtered * 0.3; // Quieter on right
+        // Layer 2: Mid-frequency waves (slight left bias)
+        let mid_waves = base_noise * 0.4 * current_intensity;
+        let mid_envelope = (secondary_wave * 0.3 + 0.7); // Gentle variation
+        left_sample += mid_waves * mid_envelope * 0.8;
+        right_sample += mid_waves * mid_envelope * 0.6;
 
-        // Layer 3: Surface waves (panned right)
-        let wave3 = utils::white_noise(&mut self.rng) * 0.35;
-        let wave3_filtered = wave3 * (self.wave_layers[2] * 1.2).sin();
-        left_sample += wave3_filtered * 0.3;  // Quieter on left
-        right_sample += wave3_filtered * 0.9; // Stronger on right
+        // Layer 3: Surface activity (slight right bias)
+        let surface_noise = utils::white_noise(&mut self.rng) * 0.35;
+        let surface_envelope = (self.wave_layers[2] * 2.0 * std::f32::consts::PI).sin() * 0.2 + 0.8;
+        left_sample += surface_noise * surface_envelope * current_intensity * 0.6;
+        right_sample += surface_noise * surface_envelope * current_intensity * 0.8;
 
-        // Layer 4: Foam and splash (moving stereo)
-        let wave4 = utils::white_noise(&mut self.rng) * 0.25;
-        let pan_pos = (self.wave_layers[3] * 0.3).sin();
-        let left_gain = (1.0 - pan_pos) * 0.5 + 0.5;
-        let right_gain = (1.0 + pan_pos) * 0.5 + 0.5;
-        left_sample += wave4 * left_gain * 0.7;
-        right_sample += wave4 * right_gain * 0.7;
+        // Layer 4: Foam and splash during crescendos only
+        if crescendo_factor > 0.2 {
+            let foam_noise = utils::white_noise(&mut self.rng) * 0.6;
+            let splash_pan = (self.wave_layers[3] * 2.0 * std::f32::consts::PI).sin() * 0.6;
+            let left_splash = foam_noise * crescendo_factor * (1.0 - splash_pan.abs());
+            let right_splash = foam_noise * crescendo_factor * (splash_pan.abs());
 
-        // Apply pink noise filtering for more natural ocean sound
-        let pink_left = utils::pink_noise_simple(left_sample, &mut self.pink_noise_state) * 0.8;
-        let pink_right = utils::pink_noise_simple(right_sample, &mut self.pink_noise_state) * 0.8;
+            if splash_pan < 0.0 {
+                left_sample += left_splash * 0.9;
+                right_sample += right_splash * 0.3;
+            } else {
+                left_sample += left_splash * 0.3;
+                right_sample += right_splash * 0.9;
+            }
+        }
 
-        // Add some cross-channel bleeding for realism
-        let final_left = pink_left * 0.85 + pink_right * 0.15;
-        let final_right = pink_right * 0.85 + pink_left * 0.15;
+        // Apply pink noise filtering for natural character
+        let pink_left = utils::pink_noise_simple(left_sample, &mut self.pink_noise_state);
+        let pink_right = utils::pink_noise_simple(right_sample, &mut self.pink_noise_state);
+
+        // Subtle cross-channel bleeding for realism
+        let final_left = pink_left * 0.9 + pink_right * 0.1;
+        let final_right = pink_right * 0.9 + pink_left * 0.1;
 
         StereoFrame::new(final_left * self.intensity, final_right * self.intensity)
     }
@@ -300,15 +329,15 @@ impl MoodGenerator for EnvironmentalGenerator {
             return StereoFrame::silence();
         }
 
-        // Update dramatic stereo pan automation
+        // Update gentle, realistic stereo pan automation
         self.pan_phase += self.pan_frequency * delta_time;
-        self.left_layer_phase += self.pan_frequency * 0.7 * delta_time;
-        self.right_layer_phase += self.pan_frequency * 1.3 * delta_time;
+        self.left_layer_phase += self.pan_frequency * 0.8 * delta_time;
+        self.right_layer_phase += self.pan_frequency * 1.2 * delta_time;
 
-        // Generate dramatic stereo positioning
-        self.stereo_pan = (self.pan_phase * 2.0 * std::f32::consts::PI).sin() * 0.8; // Much stronger panning
-        self.left_layer_pan = -0.7 + (self.left_layer_phase * 2.0 * std::f32::consts::PI).sin() * 0.3;
-        self.right_layer_pan = 0.7 + (self.right_layer_phase * 2.0 * std::f32::consts::PI).sin() * 0.3;
+        // Generate subtle, natural stereo positioning
+        self.stereo_pan = (self.pan_phase * 2.0 * std::f32::consts::PI).sin() * 0.4; // Gentle panning
+        self.left_layer_pan = -0.5 + (self.left_layer_phase * 2.0 * std::f32::consts::PI).sin() * 0.3;
+        self.right_layer_pan = 0.5 + (self.right_layer_phase * 2.0 * std::f32::consts::PI).sin() * 0.3;
 
         // Generate stereo samples based on soundscape
         match self.current_soundscape {
