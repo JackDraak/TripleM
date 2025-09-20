@@ -30,11 +30,21 @@ pub struct EnvironmentalGenerator {
     soundscape_timer: f32,
     soundscape_duration: f32,
 
-    // Stereo spatial parameters
+    // Enhanced stereo spatial parameters
     stereo_pan: f32,           // Current pan position (-1.0 to 1.0)
     stereo_width: f32,         // Stereo width factor (0.0 to 1.0)
     pan_phase: f32,            // Phase for automatic panning
     pan_frequency: f32,        // How fast the automatic panning moves
+
+    // Multi-layer stereo positioning
+    left_layer_pan: f32,       // Independent left layer panning
+    right_layer_pan: f32,      // Independent right layer panning
+    left_layer_phase: f32,     // Left layer phase for movement
+    right_layer_phase: f32,    // Right layer phase for movement
+
+    // Enhanced ocean wave parameters
+    wave_layers: [f32; 4],     // Multiple wave layer phases
+    wave_speeds: [f32; 4],     // Different wave speeds for realism
 }
 
 impl EnvironmentalGenerator {
@@ -42,7 +52,7 @@ impl EnvironmentalGenerator {
         let mut rng = StdRng::from_entropy();
         let wave_frequency = rng.gen_range(0.1..0.3);
         let wind_frequency = rng.gen_range(0.05..0.15);
-        let pan_frequency = rng.gen_range(0.01..0.03); // Very slow automatic panning
+        let pan_frequency = rng.gen_range(0.05..0.12); // Much faster panning for dramatic effect
 
         Ok(Self {
             intensity: 0.0,
@@ -58,9 +68,19 @@ impl EnvironmentalGenerator {
             soundscape_timer: 0.0,
             soundscape_duration: config.pattern_cycle_lengths[0], // 3 minutes default
             stereo_pan: 0.0,
-            stereo_width: 0.7, // Good stereo width for environmental sounds
+            stereo_width: 1.0, // Maximum stereo width for dramatic effect
             pan_phase: 0.0,
             pan_frequency,
+
+            // Initialize multi-layer stereo
+            left_layer_pan: -0.7,  // Start left layer more to the left
+            right_layer_pan: 0.7,  // Start right layer more to the right
+            left_layer_phase: 0.0,
+            right_layer_phase: std::f32::consts::PI, // Start out of phase
+
+            // Initialize ocean wave layers
+            wave_layers: [0.0, 0.0, 0.0, 0.0],
+            wave_speeds: [0.8, 1.2, 1.7, 2.3], // Different speeds for layered waves
         })
     }
 
@@ -153,9 +173,54 @@ impl EnvironmentalGenerator {
         }
     }
 
-    /// Generate ocean waves with stereo enhancement
-    fn generate_ocean_waves_stereo(&mut self, time: f64) -> f32 {
-        self.generate_ocean_waves(time)
+    /// Generate ocean waves with dramatic stereo enhancement
+    fn generate_ocean_waves_stereo(&mut self, time: f64) -> StereoFrame {
+        let delta_time = 1.0 / self.sample_rate;
+
+        // Update wave layers with different speeds
+        for i in 0..4 {
+            self.wave_layers[i] += self.wave_speeds[i] * delta_time;
+        }
+
+        // Generate multiple layered wave samples using white noise
+        let mut left_sample = 0.0;
+        let mut right_sample = 0.0;
+
+        // Layer 1: Deep ocean waves (low frequency, centered)
+        let wave1 = utils::white_noise(&mut self.rng) * 0.3;
+        let wave1_filtered = wave1 * (self.wave_layers[0] * 0.5).sin();
+        left_sample += wave1_filtered * 0.6;
+        right_sample += wave1_filtered * 0.6;
+
+        // Layer 2: Mid waves (panned left)
+        let wave2 = utils::white_noise(&mut self.rng) * 0.4;
+        let wave2_filtered = wave2 * (self.wave_layers[1] * 0.8).sin();
+        left_sample += wave2_filtered * 0.9;  // Stronger on left
+        right_sample += wave2_filtered * 0.3; // Quieter on right
+
+        // Layer 3: Surface waves (panned right)
+        let wave3 = utils::white_noise(&mut self.rng) * 0.35;
+        let wave3_filtered = wave3 * (self.wave_layers[2] * 1.2).sin();
+        left_sample += wave3_filtered * 0.3;  // Quieter on left
+        right_sample += wave3_filtered * 0.9; // Stronger on right
+
+        // Layer 4: Foam and splash (moving stereo)
+        let wave4 = utils::white_noise(&mut self.rng) * 0.25;
+        let pan_pos = (self.wave_layers[3] * 0.3).sin();
+        let left_gain = (1.0 - pan_pos) * 0.5 + 0.5;
+        let right_gain = (1.0 + pan_pos) * 0.5 + 0.5;
+        left_sample += wave4 * left_gain * 0.7;
+        right_sample += wave4 * right_gain * 0.7;
+
+        // Apply pink noise filtering for more natural ocean sound
+        let pink_left = utils::pink_noise_simple(left_sample, &mut self.pink_noise_state) * 0.8;
+        let pink_right = utils::pink_noise_simple(right_sample, &mut self.pink_noise_state) * 0.8;
+
+        // Add some cross-channel bleeding for realism
+        let final_left = pink_left * 0.85 + pink_right * 0.15;
+        let final_right = pink_right * 0.85 + pink_left * 0.15;
+
+        StereoFrame::new(final_left * self.intensity, final_right * self.intensity)
     }
 
     /// Generate wind with stereo enhancement
@@ -173,19 +238,23 @@ impl EnvironmentalGenerator {
         self.generate_rain(time)
     }
 
-    /// Apply stereo positioning to a mono sample
+    /// Apply dramatic stereo positioning to a mono sample
     fn apply_stereo_positioning(&self, mono_sample: f32) -> StereoFrame {
-        // Calculate pan position (centered around 0, -1 = full left, +1 = full right)
-        let pan = self.stereo_pan.clamp(-1.0, 1.0);
+        // Use the left and right layer pans for much more dynamic positioning
+        let left_pan = self.left_layer_pan.clamp(-1.0, 1.0);
+        let right_pan = self.right_layer_pan.clamp(-1.0, 1.0);
 
-        // Calculate left and right gains using constant power panning
-        let pan_radians = (pan + 1.0) * 0.5 * std::f32::consts::PI * 0.5; // Map -1..1 to 0..π/2
-        let left_gain = pan_radians.cos() * self.stereo_width + (1.0 - self.stereo_width);
-        let right_gain = pan_radians.sin() * self.stereo_width + (1.0 - self.stereo_width);
+        // Calculate dramatic left and right gains
+        let left_radians = (left_pan + 1.0) * 0.5 * std::f32::consts::PI * 0.5;
+        let right_radians = (right_pan + 1.0) * 0.5 * std::f32::consts::PI * 0.5;
 
-        // Apply intensity scaling
-        let left_sample = mono_sample * left_gain * self.intensity;
-        let right_sample = mono_sample * right_gain * self.intensity;
+        // Create dual-layer stereo effect
+        let left_layer_gain = left_radians.cos() * self.stereo_width;
+        let right_layer_gain = right_radians.sin() * self.stereo_width;
+
+        // Apply cross-mixing for fuller stereo field
+        let left_sample = mono_sample * (left_layer_gain * 0.8 + right_layer_gain * 0.2) * self.intensity;
+        let right_sample = mono_sample * (right_layer_gain * 0.8 + left_layer_gain * 0.2) * self.intensity;
 
         StereoFrame::new(left_sample, right_sample)
     }
@@ -231,21 +300,33 @@ impl MoodGenerator for EnvironmentalGenerator {
             return StereoFrame::silence();
         }
 
-        // Update stereo pan automation
+        // Update dramatic stereo pan automation
         self.pan_phase += self.pan_frequency * delta_time;
-        self.stereo_pan = (self.pan_phase * 2.0 * std::f32::consts::PI).sin() * 0.3; // Gentle automatic panning
+        self.left_layer_phase += self.pan_frequency * 0.7 * delta_time;
+        self.right_layer_phase += self.pan_frequency * 1.3 * delta_time;
 
-        // Generate the base mono sample
-        let mono_sample = match self.current_soundscape {
-            0 => self.generate_ocean_waves_stereo(time),
-            1 => self.generate_wind_stereo(time),
-            2 => self.generate_forest_stereo(time),
-            3 => self.generate_rain_stereo(time),
-            _ => 0.0,
-        };
+        // Generate dramatic stereo positioning
+        self.stereo_pan = (self.pan_phase * 2.0 * std::f32::consts::PI).sin() * 0.8; // Much stronger panning
+        self.left_layer_pan = -0.7 + (self.left_layer_phase * 2.0 * std::f32::consts::PI).sin() * 0.3;
+        self.right_layer_pan = 0.7 + (self.right_layer_phase * 2.0 * std::f32::consts::PI).sin() * 0.3;
 
-        // Apply stereo positioning
-        self.apply_stereo_positioning(mono_sample)
+        // Generate stereo samples based on soundscape
+        match self.current_soundscape {
+            0 => self.generate_ocean_waves_stereo(time), // Direct stereo generation
+            1 => {
+                let sample = self.generate_wind_stereo(time);
+                self.apply_stereo_positioning(sample)
+            },
+            2 => {
+                let sample = self.generate_forest_stereo(time);
+                self.apply_stereo_positioning(sample)
+            },
+            3 => {
+                let sample = self.generate_rain_stereo(time);
+                self.apply_stereo_positioning(sample)
+            },
+            _ => StereoFrame::silence(),
+        }
     }
 
     fn generate_stereo_batch(&mut self, output: &mut [StereoFrame], start_time: f64) {
