@@ -173,83 +173,101 @@ impl EnvironmentalGenerator {
         }
     }
 
-    /// Generate realistic ocean waves with natural rhythm and dynamics
+    /// Generate realistic ocean waves with research-based envelope and timing
     fn generate_ocean_waves_stereo(&mut self, _time: f64) -> StereoFrame {
         let delta_time = 1.0 / self.sample_rate;
 
-        // Update wave layers with realistic, slow speeds
+        // Update wave layers with research-based 10-20 second periods
         for i in 0..4 {
             self.wave_layers[i] += self.wave_speeds[i] * delta_time;
         }
 
-        // Calculate wave intensity using realistic ocean patterns
-        // Main wave cycle (very slow, 20-40 second periods)
+        // Main wave cycle (15-25 second periods, typical wind waves)
         let main_wave_cycle = (self.wave_layers[0] * 2.0 * std::f32::consts::PI).sin();
 
-        // Secondary wave pattern (medium period, 8-15 seconds)
+        // Secondary wave pattern (8-12 seconds)
         let secondary_wave = (self.wave_layers[1] * 2.0 * std::f32::consts::PI).sin();
 
-        // Create realistic wave envelope: mostly calm with brief crescendos
-        let base_intensity = 0.15; // Calm baseline
-        let wave_build = (main_wave_cycle * 0.5 + 0.5).powf(3.0); // Exponential build
-        let crescendo_factor = if wave_build > 0.7 {
-            // Brief, sharp crescendo like real waves
-            ((wave_build - 0.7) / 0.3).powf(2.0) * 0.8
+        // Research-based asymmetric envelope: slow build (6-8 sec), sharp peak (1-2 sec), medium decay (3-5 sec)
+        let wave_phase = main_wave_cycle * 0.5 + 0.5; // 0-1 range
+
+        let wave_envelope = if wave_phase < 0.6 {
+            // Slow build phase (60% of cycle) - gradual exponential curve
+            (wave_phase / 0.6).powf(0.4) * 0.3 // Gentle exponential build
+        } else if wave_phase < 0.8 {
+            // Sharp crescendo phase (20% of cycle) - research shows brief, intense peak
+            let peak_progress = (wave_phase - 0.6) / 0.2;
+            0.3 + peak_progress.powf(1.8) * 0.7 // Sharp rise to peak
         } else {
-            0.0
+            // Decay phase (20% of cycle) - medium-speed exponential decay
+            let decay_progress = (wave_phase - 0.8) / 0.2;
+            1.0 * (1.0 - decay_progress).powf(1.2) // Exponential decay
         };
 
-        let current_intensity = base_intensity + crescendo_factor;
+        // Base ocean intensity
+        let base_intensity = 0.12; // Calm baseline
+        let current_intensity = base_intensity + wave_envelope * 0.6;
 
-        // Generate base ocean noise
-        let base_noise = utils::white_noise(&mut self.rng);
+        // Wave approach panning (slow pan from left to right as wave builds and crashes)
+        let wave_pan_cycle = self.wave_layers[2] * 2.0 * std::f32::consts::PI;
+        let approach_pan = (wave_pan_cycle * 0.3).sin() * 0.4; // Slow pan movement
 
-        // Generate multi-layered stereo ocean sound
+        // Generate base ocean white noise
+        let base_white_noise = utils::white_noise(&mut self.rng);
+
+        // Generate pink noise for crescendos (research shows complex frequency content)
+        let crescendo_pink = utils::pink_noise_simple(
+            utils::white_noise(&mut self.rng),
+            &mut self.pink_noise_state
+        );
+
+        // Multi-layered stereo ocean sound
         let mut left_sample = 0.0;
         let mut right_sample = 0.0;
 
-        // Layer 1: Deep ocean swell (centered, constant)
-        let deep_swell = base_noise * 0.3 * current_intensity * 0.8;
+        // Layer 1: Deep ocean swell (low frequencies lead, research-based)
+        let deep_swell = base_white_noise * 0.25 * current_intensity;
         left_sample += deep_swell;
         right_sample += deep_swell;
 
-        // Layer 2: Mid-frequency waves (slight left bias)
-        let mid_waves = base_noise * 0.4 * current_intensity;
-        let mid_envelope = (secondary_wave * 0.3 + 0.7); // Gentle variation
-        left_sample += mid_waves * mid_envelope * 0.8;
-        right_sample += mid_waves * mid_envelope * 0.6;
+        // Layer 2: Mid-frequency waves with gentle variation
+        let mid_waves = base_white_noise * 0.35 * current_intensity;
+        let mid_envelope = secondary_wave * 0.2 + 0.8;
+        let mid_pan = approach_pan * 0.6; // Follows wave approach
+        left_sample += mid_waves * mid_envelope * (0.8 - mid_pan * 0.3);
+        right_sample += mid_waves * mid_envelope * (0.8 + mid_pan * 0.3);
 
-        // Layer 3: Surface activity (slight right bias)
-        let surface_noise = utils::white_noise(&mut self.rng) * 0.35;
-        let surface_envelope = (self.wave_layers[2] * 2.0 * std::f32::consts::PI).sin() * 0.2 + 0.8;
-        left_sample += surface_noise * surface_envelope * current_intensity * 0.6;
-        right_sample += surface_noise * surface_envelope * current_intensity * 0.8;
+        // Layer 3: Surface activity (research: impact noise 30-500 Hz)
+        let surface_white = utils::white_noise(&mut self.rng) * 0.3;
+        let surface_envelope = (self.wave_layers[3] * 2.0 * std::f32::consts::PI).sin() * 0.15 + 0.85;
+        left_sample += surface_white * surface_envelope * current_intensity * (0.7 + approach_pan * 0.2);
+        right_sample += surface_white * surface_envelope * current_intensity * (0.7 - approach_pan * 0.2);
 
-        // Layer 4: Foam and splash during crescendos only
-        if crescendo_factor > 0.2 {
-            let foam_noise = utils::white_noise(&mut self.rng) * 0.6;
-            let splash_pan = (self.wave_layers[3] * 2.0 * std::f32::consts::PI).sin() * 0.6;
-            let left_splash = foam_noise * crescendo_factor * (1.0 - splash_pan.abs());
-            let right_splash = foam_noise * crescendo_factor * (splash_pan.abs());
+        // Layer 4: Crescendo foam/splash with pink noise (research: bubble activity 1-20 kHz)
+        if wave_envelope > 0.6 {
+            let foam_intensity = (wave_envelope - 0.6) / 0.4; // Proportional to crescendo
 
-            if splash_pan < 0.0 {
-                left_sample += left_splash * 0.9;
-                right_sample += right_splash * 0.3;
-            } else {
-                left_sample += left_splash * 0.3;
-                right_sample += right_splash * 0.9;
-            }
+            // Mix pink noise for realistic frequency content
+            let foam_sound = crescendo_pink * 0.8 + base_white_noise * 0.2;
+            let splash_pan = approach_pan + (wave_phase * 8.0).sin() * 0.3; // Dynamic splash movement
+
+            // Pan the foam/splash across stereo field as wave crashes
+            let left_splash_gain = (1.0 - splash_pan.clamp(-1.0, 1.0)) * 0.5;
+            let right_splash_gain = (1.0 + splash_pan.clamp(-1.0, 1.0)) * 0.5;
+
+            left_sample += foam_sound * foam_intensity * left_splash_gain * 0.7;
+            right_sample += foam_sound * foam_intensity * right_splash_gain * 0.7;
         }
 
-        // Apply pink noise filtering for natural character
-        let pink_left = utils::pink_noise_simple(left_sample, &mut self.pink_noise_state);
-        let pink_right = utils::pink_noise_simple(right_sample, &mut self.pink_noise_state);
+        // Final pink noise processing for natural ocean character
+        let final_left = utils::pink_noise_simple(left_sample, &mut self.pink_noise_state);
+        let final_right = utils::pink_noise_simple(right_sample, &mut self.pink_noise_state);
 
-        // Subtle cross-channel bleeding for realism
-        let final_left = pink_left * 0.9 + pink_right * 0.1;
-        let final_right = pink_right * 0.9 + pink_left * 0.1;
+        // Research-based cross-channel bleeding for realism
+        let blended_left = final_left * 0.88 + final_right * 0.12;
+        let blended_right = final_right * 0.88 + final_left * 0.12;
 
-        StereoFrame::new(final_left * self.intensity, final_right * self.intensity)
+        StereoFrame::new(blended_left * self.intensity, blended_right * self.intensity)
     }
 
     /// Generate wind with stereo enhancement
