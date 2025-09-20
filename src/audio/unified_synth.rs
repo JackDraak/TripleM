@@ -10,7 +10,7 @@ use crate::patterns::{
 };
 use crate::audio::{
     MorphingWavetableSynth, AdditiveSynthesizer, WaveCharacter,
-    StereoFrame, NaturalVariation,
+    StereoFrame, NaturalVariation, CrossfadeManager, CrossfadeParameter, CrossfadePriority,
 };
 use crate::error::Result;
 use rand::SeedableRng;
@@ -36,6 +36,9 @@ pub struct UnifiedSynthesizer {
 
     /// Output processing
     output_processor: UnifiedOutputProcessor,
+
+    /// Crossfade manager for seamless parameter transitions
+    crossfade_manager: CrossfadeManager,
 
     /// Current input value controlling everything
     input_value: f32,
@@ -309,6 +312,7 @@ impl UnifiedSynthesizer {
 
         let wavetable_synth = MorphingWavetableSynth::new(sample_rate, WaveCharacter::Organic);
         let additive_synth = AdditiveSynthesizer::new(sample_rate, 16); // 16 harmonics
+        let crossfade_manager = CrossfadeManager::new(sample_rate)?;
 
         let variation = NaturalVariation::new(None);
 
@@ -321,6 +325,7 @@ impl UnifiedSynthesizer {
             synthesis_morph: SynthesisMorpher::new(),
             voice_manager: VoiceManager::new(),
             output_processor: UnifiedOutputProcessor::new(),
+            crossfade_manager,
             input_value: 0.0,
             variation,
             sample_counter: 0,
@@ -329,21 +334,43 @@ impl UnifiedSynthesizer {
         })
     }
 
-    /// Set the input value and update all systems
+    /// Set the input value and update all systems with crossfading
     pub fn set_input_value(&mut self, input: f32) {
         let clamped_input = input.clamp(0.0, 3.0);
-        self.input_value = clamped_input;
+
+        // Request crossfaded input value change
+        if let Ok(Some(_crossfade_id)) = self.crossfade_manager.request_parameter_change(
+            CrossfadeParameter::InputValue,
+            clamped_input,
+            CrossfadePriority::Normal,
+        ) {
+            // Crossfade was initiated
+        } else {
+            // Change was too small or rate-limited, apply immediately
+            self.apply_input_value_immediate(clamped_input);
+        }
+    }
+
+    /// Set input value immediately without crossfading (for initialization)
+    pub fn set_input_value_immediate(&mut self, input: f32) {
+        let clamped_input = input.clamp(0.0, 3.0);
+        self.apply_input_value_immediate(clamped_input);
+    }
+
+    /// Apply input value changes to all systems
+    fn apply_input_value_immediate(&mut self, input: f32) {
+        self.input_value = input;
 
         // Update pattern generators
-        self.rhythm_generator.set_input_value(clamped_input);
-        self.melody_generator.set_input_value(clamped_input);
-        self.harmony_generator.set_input_value(clamped_input);
+        self.rhythm_generator.set_input_value(input);
+        self.melody_generator.set_input_value(input);
+        self.harmony_generator.set_input_value(input);
 
         // Update synthesis morphing
-        self.synthesis_morph.update_from_input(clamped_input);
+        self.synthesis_morph.update_from_input(input);
 
         // Update output processing
-        self.output_processor.update_from_input(clamped_input);
+        self.output_processor.update_from_input(input);
     }
 
     /// Generate the next audio frame
@@ -351,6 +378,16 @@ impl UnifiedSynthesizer {
         // Update natural variation and sample counter
         self.variation.update();
         self.sample_counter = self.sample_counter.wrapping_add(1);
+
+        // Update crossfade manager
+        let delta_time = 1.0 / self.sample_rate;
+        self.crossfade_manager.update(delta_time);
+
+        // Get crossfaded input value and apply if changed
+        let crossfaded_input = self.crossfade_manager.get_parameter_value(CrossfadeParameter::InputValue);
+        if (crossfaded_input - self.input_value).abs() > 0.001 {
+            self.apply_input_value_immediate(crossfaded_input);
+        }
 
         // Get current patterns from generators
         let rhythm_pattern = self.rhythm_generator.process_sample();
@@ -644,6 +681,31 @@ impl UnifiedSynthesizer {
         self.input_value
     }
 
+    /// Get crossfaded input value
+    pub fn crossfaded_input_value(&self) -> f32 {
+        self.crossfade_manager.get_parameter_value(CrossfadeParameter::InputValue)
+    }
+
+    /// Request parameter change with crossfading
+    pub fn request_parameter_change(
+        &mut self,
+        parameter: CrossfadeParameter,
+        value: f32,
+        priority: CrossfadePriority,
+    ) -> Result<Option<usize>> {
+        self.crossfade_manager.request_parameter_change(parameter, value, priority)
+    }
+
+    /// Get crossfade statistics for monitoring
+    pub fn get_crossfade_stats(&self) -> crate::audio::crossfade::CrossfadeStats {
+        self.crossfade_manager.get_crossfade_stats()
+    }
+
+    /// Cancel crossfades for a specific parameter
+    pub fn cancel_parameter_crossfades(&mut self, parameter: CrossfadeParameter) {
+        self.crossfade_manager.cancel_parameter_crossfades(parameter);
+    }
+
     /// Reset all systems
     pub fn reset(&mut self) {
         self.rhythm_generator.reset();
@@ -652,6 +714,9 @@ impl UnifiedSynthesizer {
         self.voice_manager.reset();
         self.output_processor.reset();
         self.sample_counter = 0;
+
+        // Reset crossfade manager (would need to implement this method)
+        // self.crossfade_manager.reset();
     }
 }
 
