@@ -10,6 +10,7 @@ use crate::error::Result;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 use std::collections::VecDeque;
+use std::f32::consts::TAU;
 
 /// Unified rhythm generator with continuous interpolation
 #[derive(Debug, Clone)]
@@ -551,15 +552,53 @@ impl AdaptivePattern {
     }
 
     fn get_event_at_phase(&self, phase: f32) -> PatternEvent {
-        // Find the appropriate event for this phase
-        // Implementation details...
-        PatternEvent {
+        // Find the most appropriate template based on current complexity
+        let target_template = self.select_template_for_complexity();
+
+        // Find closest event in the current pattern
+        let mut closest_event = PatternEvent {
             timing: phase,
             velocity: 0.8,
             active: false,
             micro_offset: 0.0,
             accent: false,
+        };
+
+        let mut closest_distance = f32::MAX;
+
+        for event in &target_template.events {
+            let distance = (event.timing - phase).abs();
+            if distance < closest_distance && distance < 0.25 { // Within quarter beat
+                closest_distance = distance;
+                closest_event = event.clone();
+
+                // Apply density and complexity modulations
+                if rand::random::<f32>() > self.density {
+                    closest_event.active = false; // Reduce density
+                }
+
+                // Apply velocity variation based on complexity
+                closest_event.velocity *= 0.8 + self.complexity * 0.4;
+            }
         }
+
+        closest_event
+    }
+
+    fn select_template_for_complexity(&self) -> &PatternTemplate {
+        // Find template that best matches current complexity level
+        let mut best_template = &self.pattern_templates[0];
+        let mut best_score = f32::MAX;
+
+        for template in &self.pattern_templates {
+            let complexity_diff = (template.complexity_level - self.complexity).abs();
+            if complexity_diff < best_score {
+                best_score = complexity_diff;
+                best_template = template;
+            }
+        }
+
+        best_template
     }
 }
 
@@ -567,30 +606,199 @@ impl AdaptivePattern {
 impl PatternTemplate {
     fn create_kick_templates() -> Vec<Self> {
         vec![
+            // Ultra-minimal kick - for near-silent ranges
+            Self {
+                events: vec![
+                    PatternEvent { timing: 0.0, velocity: 0.3, active: true, micro_offset: 0.0, accent: false },
+                ],
+                complexity_level: 0.0,
+                energy_level: 0.1,
+                optimal_bpm_range: (48.0, 70.0),
+            },
             // Simple kick pattern for low complexity
             Self {
                 events: vec![
-                    PatternEvent { timing: 0.0, velocity: 1.0, active: true, micro_offset: 0.0, accent: true },
-                    PatternEvent { timing: 1.0, velocity: 0.8, active: false, micro_offset: 0.0, accent: false },
+                    PatternEvent { timing: 0.0, velocity: 0.8, active: true, micro_offset: 0.0, accent: true },
+                    PatternEvent { timing: 2.0, velocity: 0.6, active: true, micro_offset: 0.0, accent: false },
                 ],
-                complexity_level: 0.2,
-                energy_level: 0.3,
-                optimal_bpm_range: (48.0, 90.0),
+                complexity_level: 0.3,
+                energy_level: 0.4,
+                optimal_bpm_range: (60.0, 100.0),
             },
-            // More complex patterns...
+            // Standard 4-on-the-floor
+            Self {
+                events: vec![
+                    PatternEvent { timing: 0.0, velocity: 1.0, active: true, micro_offset: 0.0, accent: true },
+                    PatternEvent { timing: 1.0, velocity: 0.9, active: true, micro_offset: 0.0, accent: false },
+                    PatternEvent { timing: 2.0, velocity: 0.95, active: true, micro_offset: 0.0, accent: false },
+                    PatternEvent { timing: 3.0, velocity: 0.85, active: true, micro_offset: 0.0, accent: false },
+                ],
+                complexity_level: 0.6,
+                energy_level: 0.8,
+                optimal_bpm_range: (110.0, 140.0),
+            },
+            // Complex syncopated kick
+            Self {
+                events: vec![
+                    PatternEvent { timing: 0.0, velocity: 1.0, active: true, micro_offset: 0.0, accent: true },
+                    PatternEvent { timing: 0.75, velocity: 0.6, active: true, micro_offset: 0.02, accent: false },
+                    PatternEvent { timing: 1.5, velocity: 0.8, active: true, micro_offset: -0.01, accent: false },
+                    PatternEvent { timing: 2.25, velocity: 0.7, active: true, micro_offset: 0.015, accent: false },
+                    PatternEvent { timing: 3.0, velocity: 0.9, active: true, micro_offset: 0.0, accent: false },
+                ],
+                complexity_level: 0.9,
+                energy_level: 1.0,
+                optimal_bpm_range: (130.0, 180.0),
+            },
         ]
     }
 
     fn create_snare_templates() -> Vec<Self> {
-        vec![] // Implementation...
+        vec![
+            // No snare - for ambient textures
+            Self {
+                events: vec![],
+                complexity_level: 0.0,
+                energy_level: 0.0,
+                optimal_bpm_range: (48.0, 80.0),
+            },
+            // Minimal snare
+            Self {
+                events: vec![
+                    PatternEvent { timing: 2.0, velocity: 0.5, active: true, micro_offset: 0.0, accent: false },
+                ],
+                complexity_level: 0.2,
+                energy_level: 0.3,
+                optimal_bpm_range: (70.0, 100.0),
+            },
+            // Standard backbeat
+            Self {
+                events: vec![
+                    PatternEvent { timing: 1.0, velocity: 0.9, active: true, micro_offset: 0.0, accent: true },
+                    PatternEvent { timing: 3.0, velocity: 0.85, active: true, micro_offset: 0.0, accent: false },
+                ],
+                complexity_level: 0.5,
+                energy_level: 0.7,
+                optimal_bpm_range: (90.0, 130.0),
+            },
+            // Complex snare pattern
+            Self {
+                events: vec![
+                    PatternEvent { timing: 1.0, velocity: 1.0, active: true, micro_offset: 0.0, accent: true },
+                    PatternEvent { timing: 1.75, velocity: 0.4, active: true, micro_offset: 0.02, accent: false },
+                    PatternEvent { timing: 2.5, velocity: 0.6, active: true, micro_offset: -0.01, accent: false },
+                    PatternEvent { timing: 3.0, velocity: 0.9, active: true, micro_offset: 0.0, accent: false },
+                    PatternEvent { timing: 3.5, velocity: 0.5, active: true, micro_offset: 0.015, accent: false },
+                ],
+                complexity_level: 0.8,
+                energy_level: 0.9,
+                optimal_bpm_range: (120.0, 180.0),
+            },
+        ]
     }
 
     fn create_hihat_templates() -> Vec<Self> {
-        vec![] // Implementation...
+        vec![
+            // No hihat - for pure ambient
+            Self {
+                events: vec![],
+                complexity_level: 0.0,
+                energy_level: 0.0,
+                optimal_bpm_range: (48.0, 70.0),
+            },
+            // Sparse hihat
+            Self {
+                events: vec![
+                    PatternEvent { timing: 0.5, velocity: 0.3, active: true, micro_offset: 0.0, accent: false },
+                    PatternEvent { timing: 2.5, velocity: 0.25, active: true, micro_offset: 0.0, accent: false },
+                ],
+                complexity_level: 0.2,
+                energy_level: 0.3,
+                optimal_bpm_range: (60.0, 90.0),
+            },
+            // Standard 8th note hihat
+            Self {
+                events: vec![
+                    PatternEvent { timing: 0.5, velocity: 0.6, active: true, micro_offset: 0.0, accent: false },
+                    PatternEvent { timing: 1.5, velocity: 0.5, active: true, micro_offset: 0.0, accent: false },
+                    PatternEvent { timing: 2.5, velocity: 0.6, active: true, micro_offset: 0.0, accent: false },
+                    PatternEvent { timing: 3.5, velocity: 0.5, active: true, micro_offset: 0.0, accent: false },
+                ],
+                complexity_level: 0.5,
+                energy_level: 0.6,
+                optimal_bpm_range: (90.0, 130.0),
+            },
+            // Complex 16th note hihat
+            Self {
+                events: vec![
+                    PatternEvent { timing: 0.25, velocity: 0.4, active: true, micro_offset: 0.01, accent: false },
+                    PatternEvent { timing: 0.5, velocity: 0.7, active: true, micro_offset: 0.0, accent: false },
+                    PatternEvent { timing: 0.75, velocity: 0.3, active: true, micro_offset: -0.005, accent: false },
+                    PatternEvent { timing: 1.25, velocity: 0.5, active: true, micro_offset: 0.008, accent: false },
+                    PatternEvent { timing: 1.5, velocity: 0.6, active: true, micro_offset: 0.0, accent: false },
+                    PatternEvent { timing: 1.75, velocity: 0.4, active: true, micro_offset: 0.012, accent: false },
+                    PatternEvent { timing: 2.25, velocity: 0.45, active: true, micro_offset: -0.003, accent: false },
+                    PatternEvent { timing: 2.5, velocity: 0.7, active: true, micro_offset: 0.0, accent: false },
+                    PatternEvent { timing: 2.75, velocity: 0.35, active: true, micro_offset: 0.01, accent: false },
+                    PatternEvent { timing: 3.25, velocity: 0.5, active: true, micro_offset: 0.006, accent: false },
+                    PatternEvent { timing: 3.5, velocity: 0.6, active: true, micro_offset: 0.0, accent: false },
+                    PatternEvent { timing: 3.75, velocity: 0.4, active: true, micro_offset: -0.008, accent: false },
+                ],
+                complexity_level: 0.9,
+                energy_level: 0.8,
+                optimal_bpm_range: (120.0, 180.0),
+            },
+        ]
     }
 
     fn create_percussion_templates() -> Vec<Self> {
-        vec![] // Implementation...
+        vec![
+            // No percussion - for minimal soundscapes
+            Self {
+                events: vec![],
+                complexity_level: 0.0,
+                energy_level: 0.0,
+                optimal_bpm_range: (48.0, 80.0),
+            },
+            // Occasional percussion accents
+            Self {
+                events: vec![
+                    PatternEvent { timing: 1.5, velocity: 0.4, active: true, micro_offset: 0.0, accent: false },
+                ],
+                complexity_level: 0.3,
+                energy_level: 0.4,
+                optimal_bpm_range: (70.0, 110.0),
+            },
+            // Moderate percussion layer
+            Self {
+                events: vec![
+                    PatternEvent { timing: 0.25, velocity: 0.3, active: true, micro_offset: 0.01, accent: false },
+                    PatternEvent { timing: 1.75, velocity: 0.5, active: true, micro_offset: -0.005, accent: false },
+                    PatternEvent { timing: 3.25, velocity: 0.4, active: true, micro_offset: 0.008, accent: false },
+                ],
+                complexity_level: 0.6,
+                energy_level: 0.7,
+                optimal_bpm_range: (100.0, 140.0),
+            },
+            // Complex percussion patterns
+            Self {
+                events: vec![
+                    PatternEvent { timing: 0.125, velocity: 0.3, active: true, micro_offset: 0.015, accent: false },
+                    PatternEvent { timing: 0.375, velocity: 0.2, active: true, micro_offset: -0.01, accent: false },
+                    PatternEvent { timing: 0.875, velocity: 0.4, active: true, micro_offset: 0.008, accent: false },
+                    PatternEvent { timing: 1.125, velocity: 0.35, active: true, micro_offset: 0.012, accent: false },
+                    PatternEvent { timing: 1.625, velocity: 0.5, active: true, micro_offset: -0.005, accent: false },
+                    PatternEvent { timing: 2.125, velocity: 0.3, active: true, micro_offset: 0.018, accent: false },
+                    PatternEvent { timing: 2.375, velocity: 0.25, active: true, micro_offset: -0.008, accent: false },
+                    PatternEvent { timing: 2.875, velocity: 0.45, active: true, micro_offset: 0.01, accent: false },
+                    PatternEvent { timing: 3.375, velocity: 0.4, active: true, micro_offset: 0.006, accent: false },
+                    PatternEvent { timing: 3.625, velocity: 0.3, active: true, micro_offset: -0.012, accent: false },
+                ],
+                complexity_level: 0.9,
+                energy_level: 0.9,
+                optimal_bpm_range: (130.0, 180.0),
+            },
+        ]
     }
 }
 
@@ -717,17 +925,80 @@ impl AdaptiveEuclideanLayer {
     }
 
     fn generate_pattern(&mut self) {
-        // Generate Euclidean pattern with floating point values
-        // Implementation...
+        // Generate Euclidean pattern with floating point values for smooth interpolation
+        self.pattern = vec![0.0; self.steps];
+
+        let pulses_int = self.pulses.floor() as usize;
+        let pulse_fraction = self.pulses.fract();
+
+        // Generate base Euclidean pattern
+        if pulses_int > 0 {
+            let mut bucket = 0;
+            for i in 0..self.steps {
+                bucket += pulses_int;
+                if bucket >= self.steps {
+                    bucket -= self.steps;
+                    let index = ((i as f32 + self.rotation) % self.steps as f32) as usize % self.steps;
+                    self.pattern[index] = 1.0;
+                }
+            }
+        }
+
+        // Add fractional pulse as amplitude modulation
+        if pulse_fraction > 0.0 {
+            for i in 0..self.steps {
+                if self.pattern[i] == 0.0 {
+                    // Find potential spots for fractional pulses
+                    let phase = i as f32 / self.steps as f32;
+                    let fractional_contribution = (phase * TAU * 3.0).sin() * 0.5 + 0.5;
+                    if fractional_contribution > (1.0 - pulse_fraction) {
+                        self.pattern[i] = pulse_fraction * fractional_contribution;
+                    }
+                }
+            }
+        }
     }
 
     fn update_from_input(&mut self, input: f32) {
-        // Adapt parameters based on input value
-        // Implementation...
+        // Check if this layer should be active for the current input value
+        let input_in_range = input >= self.active_range.0 && input <= self.active_range.1;
+
+        if input_in_range {
+            // Adapt pulse count based on input value within the active range
+            let range_size = self.active_range.1 - self.active_range.0;
+            let normalized_input = (input - self.active_range.0) / range_size;
+
+            // Adjust pulse density based on input
+            let base_pulses = self.steps as f32 * 0.25; // Base density
+            let max_pulses = self.steps as f32 * 0.75;  // Max density
+            self.pulses = base_pulses + normalized_input * (max_pulses - base_pulses);
+
+            // Slowly evolve rotation for variation
+            self.rotation += 0.001 * normalized_input;
+            if self.rotation >= self.steps as f32 {
+                self.rotation -= self.steps as f32;
+            }
+
+            // Regenerate pattern with new parameters
+            self.generate_pattern();
+        }
     }
 
     fn get_contribution(&self, beat_phase: f32, input_value: f32) -> bool {
-        // Check if this layer contributes at this phase and input value
-        false // Placeholder
+        // Check if this layer should contribute at this beat phase and input value
+        let input_in_range = input_value >= self.active_range.0 && input_value <= self.active_range.1;
+
+        if !input_in_range {
+            return false;
+        }
+
+        // Calculate which step we're in
+        let step_index = (beat_phase * self.steps as f32) as usize % self.steps;
+        let pattern_value = self.pattern[step_index];
+
+        // Use pattern value as probability for contribution
+        let contribution_probability = pattern_value * (input_value / 3.0).clamp(0.0, 1.0);
+
+        rand::random::<f32>() < contribution_probability
     }
 }

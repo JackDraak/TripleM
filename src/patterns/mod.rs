@@ -5,7 +5,9 @@ pub mod genetic;
 pub mod rhythm;
 pub mod unified_rhythm;
 pub mod melody;
+pub mod unified_melody;
 pub mod harmony;
+pub mod unified_harmony;
 
 use rand::Rng;
 use crate::error::Result;
@@ -15,7 +17,9 @@ pub use genetic::{GeneticRhythm, RhythmChromosome, FitnessCriteria};
 pub use rhythm::{RhythmPattern, RhythmGenerator};
 pub use unified_rhythm::{UnifiedRhythmGenerator, AdaptivePattern, GrooveMorpher};
 pub use melody::{MelodyPattern, MelodyGenerator};
+pub use unified_melody::{UnifiedMelodyGenerator, ContinuousScaleMorpher, AdaptivePhraseGenerator};
 pub use harmony::{HarmonyPattern, HarmonyGenerator};
+pub use unified_harmony::{UnifiedHarmonyGenerator, ChordStructure, AdaptiveChordProgression};
 
 /// Base trait for all pattern generators
 pub trait PatternGenerator {
