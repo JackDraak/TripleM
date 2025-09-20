@@ -2,7 +2,7 @@
 //!
 //! This module provides a unified synthesizer that seamlessly integrates
 //! wavetable and additive synthesis engines with the unified pattern generators,
-//! enabling continuous parameter morphing across the entire input range (0.0-3.0).
+//! enabling continuous parameter morphing across the entire input range (0.0-1.0).
 
 use crate::patterns::{
     UnifiedRhythmGenerator, UnifiedMelodyGenerator, UnifiedHarmonyGenerator,
@@ -81,7 +81,7 @@ pub struct MorphCurve {
 
 #[derive(Debug, Clone)]
 pub struct MorphPoint {
-    /// Input value (0.0-3.0)
+    /// Input value (0.0-1.0)
     input: f32,
 
     /// Wavetable weight at this point
@@ -336,7 +336,7 @@ impl UnifiedSynthesizer {
 
     /// Set the input value and update all systems with crossfading
     pub fn set_input_value(&mut self, input: f32) {
-        let clamped_input = input.clamp(0.0, 3.0);
+        let clamped_input = input.clamp(0.0, 1.0);
 
         // Request crossfaded input value change
         if let Ok(Some(_crossfade_id)) = self.crossfade_manager.request_parameter_change(
@@ -353,7 +353,7 @@ impl UnifiedSynthesizer {
 
     /// Set input value immediately without crossfading (for initialization)
     pub fn set_input_value_immediate(&mut self, input: f32) {
-        let clamped_input = input.clamp(0.0, 3.0);
+        let clamped_input = input.clamp(0.0, 1.0);
         self.apply_input_value_immediate(clamped_input);
     }
 
@@ -587,13 +587,13 @@ impl UnifiedSynthesizer {
         };
 
         // Modulate based on input value
-        let input_factor = self.input_value / 3.0;
+        let input_factor = self.input_value;
         base_cutoff * (0.3 + input_factor * 0.7)
     }
 
     /// Calculate filter resonance
     fn calculate_filter_resonance(&self, _voice_type: VoiceType) -> f32 {
-        0.1 + (self.input_value / 3.0) * 0.4 // 0.1 to 0.5
+        0.1 + self.input_value * 0.4 // 0.1 to 0.5
     }
 
     /// Calculate number of harmonics for additive synthesis
@@ -623,7 +623,7 @@ impl UnifiedSynthesizer {
             let base_weight = 1.0 / (harmonic_num as f32).sqrt();
 
             // Modulate based on input value
-            let input_factor = self.input_value / 3.0;
+            let input_factor = self.input_value;
             let weight = base_weight * (0.5 + input_factor * 0.5);
 
             weights.push(weight);
@@ -640,7 +640,7 @@ impl UnifiedSynthesizer {
             VoiceType::Bass => 0.2,
         };
 
-        base_emphasis * (self.input_value / 3.0)
+        base_emphasis * self.input_value
     }
 
     /// Generate wavetable sample (stub implementation)
@@ -865,7 +865,7 @@ impl MorphCurve {
                     additive_complexity: 0.5,
                 },
                 MorphPoint {
-                    input: 3.0,
+                    input: 1.0,
                     wavetable_weight: 0.2,
                     additive_weight: 0.8,
                     wavetable_character: WaveCharacter::Synthetic,
@@ -1116,7 +1116,7 @@ impl SpatialProcessor {
     }
 
     fn update_from_input(&mut self, input: f32) {
-        self.stereo_width = 0.5 + (input / 3.0) * 0.5; // 0.5 to 1.0
+        self.stereo_width = 0.5 + input * 0.5; // 0.5 to 1.0
         self.spatial_movement.update_from_input(input);
     }
 
@@ -1146,8 +1146,8 @@ impl SpatialMovement {
     }
 
     fn update_from_input(&mut self, input: f32) {
-        self.movement_speed = 0.05 + (input / 3.0) * 0.15;
-        self.movement_depth = 0.1 + (input / 3.0) * 0.3;
+        self.movement_speed = 0.05 + input * 0.15;
+        self.movement_depth = 0.1 + input * 0.3;
 
         self.movement_pattern = match input {
             i if i < 1.0 => MovementPattern::Static,
@@ -1173,8 +1173,8 @@ impl DynamicsProcessor {
 
     fn update_from_input(&mut self, input: f32) {
         // More compression at higher input values
-        self.compression_ratio = 1.0 + (input / 3.0) * 3.0; // 1.0 to 4.0
-        self.threshold = -20.0 + (input / 3.0) * 8.0; // -20 to -12 dB
+        self.compression_ratio = 1.0 + input * 3.0; // 1.0 to 4.0
+        self.threshold = -20.0 + input * 8.0; // -20 to -12 dB
     }
 
     fn process(&mut self, input: StereoFrame) -> StereoFrame {
@@ -1215,9 +1215,9 @@ impl OutputFilterBank {
 
     fn update_from_input(&mut self, input: f32) {
         // Adjust filtering based on input
-        self.highpass_cutoff = 20.0 + (input / 3.0) * 30.0; // 20 to 50 Hz
-        self.lowpass_cutoff = 20000.0 - (input / 3.0) * 5000.0; // 20kHz to 15kHz
-        self.presence_boost = (input / 3.0) * 3.0; // 0 to 3 dB
+        self.highpass_cutoff = 20.0 + input * 30.0; // 20 to 50 Hz
+        self.lowpass_cutoff = 20000.0 - input * 5000.0; // 20kHz to 15kHz
+        self.presence_boost = input * 3.0; // 0 to 3 dB
     }
 
     fn process(&mut self, input: StereoFrame) -> StereoFrame {

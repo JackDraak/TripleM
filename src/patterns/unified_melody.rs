@@ -14,7 +14,7 @@ use std::collections::VecDeque;
 /// Unified melody generator with continuous adaptation
 #[derive(Debug, Clone)]
 pub struct UnifiedMelodyGenerator {
-    /// Current input value controlling all parameters (0.0-3.0)
+    /// Current input value controlling all parameters (0.0-1.0)
     input_value: f32,
 
     /// Continuous scale morphing system
@@ -364,7 +364,7 @@ impl UnifiedMelodyGenerator {
 
     /// Set input value and update all parameters
     pub fn set_input_value(&mut self, input: f32) {
-        self.input_value = input.clamp(0.0, 3.0);
+        self.input_value = input.clamp(0.0, 1.0);
         self.update_parameters_from_input();
     }
 
@@ -405,7 +405,7 @@ impl UnifiedMelodyGenerator {
                 let t = i - 1.0;
                 0.4 + (t * 0.4) // 0.4 to 0.8 notes per beat
             },
-            // EDM range (2.0-3.0): High note density
+            // EDM range (0.67-1.0): High note density
             _ => {
                 let t = input - 2.0;
                 0.8 + (t * 0.6) // 0.8 to 1.4 notes per beat
@@ -596,7 +596,7 @@ impl UnifiedMelodyGenerator {
 
     /// Calculate velocity based on input and phrase position
     fn calculate_velocity(&self) -> f32 {
-        let base_velocity = 0.6 + (self.input_value / 3.0) * 0.3; // 0.6 to 0.9
+        let base_velocity = 0.6 + self.input_value * 0.3; // 0.6 to 0.9
 
         // Apply phrase dynamics
         let phrase_dynamics = self.phrase_generator.get_dynamics_at_position(self.phrase_position);
@@ -612,7 +612,7 @@ impl UnifiedMelodyGenerator {
     /// Calculate timbre morphing parameter
     fn calculate_timbre_morph(&self) -> f32 {
         // Morph from organic (0.0) to synthetic (1.0) based on input
-        let base_morph = self.input_value / 3.0;
+        let base_morph = self.input_value;
 
         // Add some evolution over time
         let evolution_factor = self.evolution_engine.get_timbre_evolution();
@@ -696,7 +696,7 @@ impl ContinuousScaleMorpher {
             // EDM scales
             ScaleTemplate {
                 scale: Scale::Blues,
-                input_range: (2.0, 3.0),
+                input_range: (0.67, 1.0),
                 brightness: 0.4,
                 tension: 0.6,
                 complexity: 0.8,
@@ -888,7 +888,7 @@ impl AdaptiveMarkov {
             },
             // EDM matrix
             TransitionMatrix {
-                input_range: (2.0, 3.0),
+                input_range: (0.67, 1.0),
                 transitions: vec![vec![0.1; 128]; 128],
                 rhythm_transitions: vec![vec![0.1; 8]; 8],
                 style_bias: StyleBias {

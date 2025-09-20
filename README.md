@@ -1,18 +1,28 @@
 # TripleM - Mood Music Module
 
-A Rust-based procedural mood music generation module that creates continuous audio streams based on a single 0.0-1.0 mood parameter.
+A sophisticated Rust-based procedural music generation system that creates continuous audio streams with seamless real-time parameter morphing. Features both simple and advanced interfaces with professional-grade cross-fading capabilities.
 
 ## Features
 
-- **Single Parameter Control**: One float input (0.0-1.0) controls the entire mood spectrum
-- **Four Distinct Mood Categories**:
-  - **Environmental (0.0-0.25)**: Natural sounds (ocean, wind, forest, rain)
-  - **Gentle Melodic (0.25-0.5)**: Relaxing spa/massage music with gentle melodies
-  - **Active Ambient (0.5-0.75)**: Productivity-focused ambient music with rhythmic elements
-  - **EDM Style (0.75-1.0)**: High-energy electronic dance music with beats and drops
-- **Smooth Transitions**: Seamless blending between mood categories
-- **Real-time Audio**: 44.1kHz output using CPAL for cross-platform compatibility
-- **Procedural Generation**: Uses Markov chains and mathematical synthesis for infinite variety
+### Core Capabilities
+- **Unified Parameter Control**: Single 0.0-1.0 input seamlessly morphs across entire musical spectrum
+- **Continuous Musical Evolution**: From ambient environmental sounds to high-energy electronic music
+- **Advanced Cross-fading**: Artifact-free real-time parameter transitions with multiple curve types
+- **Dual Interface Design**: Simple interface for basic use, advanced interface for professional control
+- **Real-time Performance**: Optimized lock-free audio pipeline with comprehensive monitoring
+
+### Musical Progression (0.0-1.0)
+- **Environmental (0.0-0.33)**: Natural ambient sounds with subtle textures
+- **Gentle Melodic (0.33-0.67)**: Relaxing melodies with increasing complexity
+- **Active Rhythmic (0.67-1.0)**: Energetic electronic music with complex patterns
+- **Seamless Morphing**: Continuous transitions without discrete boundaries
+
+### Advanced Features
+- **Preset Management**: Save/load parameter configurations with metadata
+- **Real-time Monitoring**: CPU usage, audio levels, performance metrics
+- **Parameter Validation**: Intelligent constraint handling and curve mapping
+- **Cross-fade Statistics**: Monitor transition timing and system health
+- **Comprehensive API**: Both simple and advanced control interfaces
 
 ## Applications
 
@@ -55,39 +65,134 @@ cargo run --release --bin test_audio
 # Debug generator internals
 cargo run --release --bin debug_audio
 
+# Test unified controller interface (NEW)
+cargo run --release --bin test_unified_controller
+
 # Quick test across mood ranges
 ./test_moods.sh
 ```
 
 ## Library Usage
 
+### Simple Interface (Recommended for Basic Use)
+
 ```rust
-use mood_music_module::{MoodMusicModule, MoodConfig};
+use mood_music_module::MoodMusicModule;
 
-// Create and configure the module
-let config = MoodConfig::default();
-let mut module = MoodMusicModule::with_config(config)?;
-
-// Start audio generation
+// Create and start the module
+let mut module = MoodMusicModule::new(44100)?;
 module.start();
-module.set_mood(0.35);  // Gentle melodic
-module.set_volume(0.8); // 80% volume
 
-// Get audio samples
+// Control mood and volume
+module.set_mood(0.35);   // Gentle melodic range
+module.set_volume(0.8);  // 80% volume
+
+// Generate audio
 let sample = module.get_next_sample();
 
-// Or fill a buffer
+// Or fill buffers efficiently
 let mut buffer = vec![0.0; 1024];
 module.fill_buffer(&mut buffer);
 ```
 
+### Advanced Interface (Professional Control)
+
+```rust
+use mood_music_module::{
+    UnifiedController, MoodConfig, ControlParameter,
+    ChangeSource, PresetMetadata
+};
+
+// Create advanced controller
+let config = MoodConfig::default_with_sample_rate(44100);
+let mut controller = UnifiedController::new(config)?;
+controller.start()?;
+
+// Smooth parameter changes with cross-fading
+controller.set_mood_intensity(0.7)?;
+controller.set_parameter_smooth(
+    ControlParameter::RhythmicDensity,
+    0.8,
+    ChangeSource::UserInterface
+)?;
+
+// Advanced parameter control
+controller.set_parameter_smooth(
+    ControlParameter::HarmonicComplexity, 0.6,
+    ChangeSource::UserInterface
+)?;
+controller.set_parameter_smooth(
+    ControlParameter::StereoWidth, 0.9,
+    ChangeSource::UserInterface
+)?;
+
+// Preset management
+let metadata = PresetMetadata {
+    description: "Focus work session".to_string(),
+    category: "Productivity".to_string(),
+    tags: vec!["focus".to_string(), "ambient".to_string()],
+    created_time: std::time::SystemTime::now(),
+    user_rating: Some(5),
+};
+controller.save_preset("My Focus".to_string(), metadata)?;
+controller.load_preset("My Focus")?;
+
+// Real-time monitoring
+let status = controller.get_system_status();
+println!("CPU Usage: {:.1}%", status.cpu_usage * 100.0);
+println!("Active crossfades: {}", status.crossfade_stats.active_crossfades);
+
+// Generate audio with monitoring
+let sample = controller.get_next_sample();
+let levels = controller.get_output_levels();
+```
+
+### Available Control Parameters
+
+```rust
+// Musical parameters
+ControlParameter::MoodIntensity      // Primary 0-1 control
+ControlParameter::RhythmicDensity    // Beat complexity
+ControlParameter::MelodicDensity     // Note density
+ControlParameter::HarmonicComplexity // Chord complexity
+ControlParameter::MusicalComplexity  // Overall complexity
+
+// Synthesis parameters
+ControlParameter::SynthesisCharacter // Wavetable ↔ Additive
+ControlParameter::TimbralBrightness  // Sound brightness
+ControlParameter::TexturalComplexity // Smooth ↔ Granular
+
+// Spatial and effects
+ControlParameter::StereoWidth        // Stereo field width
+ControlParameter::AmbientSpace       // Reverb/space
+ControlParameter::DynamicRange       // Compression
+
+// Advanced controls
+ControlParameter::Tempo              // BPM control
+ControlParameter::Humanization       // Natural variation
+ControlParameter::TransitionSmoothing // Cross-fade behavior
+```
+
 ## Technical Architecture
 
+### Core Systems
+- **Unified Controller**: Advanced interface with comprehensive parameter control
+- **Cross-fade Manager**: Seamless real-time parameter transitions with multiple curve types
 - **Lock-free Audio Pipeline**: Real-time performance with atomic parameter updates
-- **Generator Pool**: Four specialized generators for different mood ranges
-- **Transition Manager**: Smooth crossfading between mood categories
-- **Output Mixer**: Advanced mixing with limiter and master volume control
-- **Markov Chains**: Procedural pattern generation for melodies and rhythms
+- **Parameter State Management**: Intelligent validation, constraints, and curve mapping
+- **Real-time Monitoring**: CPU usage, audio levels, and performance tracking
+
+### Audio Generation
+- **Unified Generators**: Continuous parameter response across 0.0-1.0 range
+- **Pattern Systems**: Unified rhythm, melody, and harmony generators
+- **Synthesis Integration**: Seamless wavetable ↔ additive synthesis morphing
+- **Output Processing**: Advanced mixing with limiter and spatial effects
+
+### Advanced Features
+- **Preset System**: Complete preset management with metadata and categorization
+- **Parameter Curves**: Linear, exponential, logarithmic, and sigmoid mapping
+- **Change Source Tracking**: Monitor parameter changes from different sources
+- **Performance Metrics**: Comprehensive system health and timing statistics
 
 ## Audio Quality
 

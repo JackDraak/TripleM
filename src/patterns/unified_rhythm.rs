@@ -1,7 +1,7 @@
 //! Unified rhythm generator with continuous BPM interpolation and adaptive complexity
 //!
 //! This module implements a single rhythm generator that responds continuously to
-//! input values (0.0-3.0), creating seamless transitions from relaxing ambient
+//! input values (0.0-1.0), creating seamless transitions from relaxing ambient
 //! textures to high-energy EDM patterns based on scientific BPM research.
 
 use crate::patterns::{PatternGenerator, PatternParameters, RhythmPattern};
@@ -15,7 +15,7 @@ use std::f32::consts::TAU;
 /// Unified rhythm generator with continuous interpolation
 #[derive(Debug, Clone)]
 pub struct UnifiedRhythmGenerator {
-    /// Current input value controlling all parameters (0.0-3.0)
+    /// Current input value controlling all parameters (0.0-1.0)
     input_value: f32,
 
     /// Core timing
@@ -289,9 +289,9 @@ impl UnifiedRhythmGenerator {
         })
     }
 
-    /// Set the input value (0.0-3.0) and update all parameters
+    /// Set the input value (0.0-1.0) and update all parameters
     pub fn set_input_value(&mut self, input: f32) {
-        self.input_value = input.clamp(0.0, 3.0);
+        self.input_value = input.clamp(0.0, 1.0);
         self.update_parameters_from_input();
     }
 
@@ -339,7 +339,7 @@ impl UnifiedRhythmGenerator {
                 let t = i - 1.0; // 0.0-1.0
                 80.0 + (t * 50.0) // Linear interpolation from 80 to 130 BPM
             },
-            // EDM range (2.0-3.0): 130-180 BPM
+            // EDM range (0.67-1.0): 130-180 BPM
             _ => {
                 let t = input - 2.0; // 0.0-1.0
                 130.0 + (t * 50.0) // Linear interpolation from 130 to 180 BPM
@@ -350,13 +350,13 @@ impl UnifiedRhythmGenerator {
     /// Calculate pattern complexity from input value
     fn calculate_complexity_from_input(&self, input: f32) -> f32 {
         // Exponential curve for complexity
-        (input / 3.0).powf(1.5).clamp(0.0, 1.0)
+        input.powf(1.5).clamp(0.0, 1.0)
     }
 
     /// Calculate pattern density from input value
     fn calculate_density_from_input(&self, input: f32) -> f32 {
         // S-curve for density (starts slow, accelerates, then levels off)
-        let normalized = input / 3.0;
+        let normalized = input;
         let s_curve = 1.0 / (1.0 + (-10.0 * (normalized - 0.5)).exp());
         s_curve.clamp(0.0, 1.0)
     }
@@ -364,7 +364,7 @@ impl UnifiedRhythmGenerator {
     /// Calculate energy level from input value
     fn calculate_energy_from_input(&self, input: f32) -> f32 {
         // Nearly linear but with slight acceleration at higher values
-        let normalized = input / 3.0;
+        let normalized = input;
         normalized.powf(1.2).clamp(0.0, 1.0)
     }
 
@@ -456,20 +456,20 @@ impl UnifiedRhythmGenerator {
     fn create_euclidean_layers() -> Vec<AdaptiveEuclideanLayer> {
         vec![
             // Kick layers
-            AdaptiveEuclideanLayer::new(16, 4.0, 0.0, RhythmInstrument::Kick, (1.0, 3.0)),
-            AdaptiveEuclideanLayer::new(16, 6.0, 0.0, RhythmInstrument::Kick, (2.0, 3.0)),
+            AdaptiveEuclideanLayer::new(16, 4.0, 0.0, RhythmInstrument::Kick, (0.33, 1.0)),
+            AdaptiveEuclideanLayer::new(16, 6.0, 0.0, RhythmInstrument::Kick, (0.67, 1.0)),
 
             // Snare layers
-            AdaptiveEuclideanLayer::new(16, 2.0, 8.0, RhythmInstrument::Snare, (0.5, 3.0)),
-            AdaptiveEuclideanLayer::new(32, 5.0, 12.0, RhythmInstrument::Snare, (2.0, 3.0)),
+            AdaptiveEuclideanLayer::new(16, 2.0, 8.0, RhythmInstrument::Snare, (0.17, 1.0)),
+            AdaptiveEuclideanLayer::new(32, 5.0, 12.0, RhythmInstrument::Snare, (0.67, 1.0)),
 
             // Hi-hat layers
-            AdaptiveEuclideanLayer::new(16, 8.0, 0.0, RhythmInstrument::HiHat, (1.0, 3.0)),
+            AdaptiveEuclideanLayer::new(16, 8.0, 0.0, RhythmInstrument::HiHat, (0.33, 1.0)),
             AdaptiveEuclideanLayer::new(32, 19.0, 5.0, RhythmInstrument::HiHat, (1.5, 3.0)),
 
             // Percussion layers
             AdaptiveEuclideanLayer::new(16, 3.0, 5.0, RhythmInstrument::Percussion, (1.5, 3.0)),
-            AdaptiveEuclideanLayer::new(24, 7.0, 3.0, RhythmInstrument::Percussion, (2.0, 3.0)),
+            AdaptiveEuclideanLayer::new(24, 7.0, 3.0, RhythmInstrument::Percussion, (0.67, 1.0)),
         ]
     }
 
@@ -814,7 +814,7 @@ impl MicroTimingEngine {
 
     fn set_input_value(&mut self, input: f32) {
         // Adjust humanization and swing based on input
-        self.humanization_amount = 0.01 + (input / 3.0) * 0.03;
+        self.humanization_amount = 0.01 + input * 0.03;
         self.swing_amount = if input > 1.0 { (input - 1.0) / 2.0 * 0.3 } else { 0.0 };
     }
 
@@ -997,7 +997,7 @@ impl AdaptiveEuclideanLayer {
         let pattern_value = self.pattern[step_index];
 
         // Use pattern value as probability for contribution
-        let contribution_probability = pattern_value * (input_value / 3.0).clamp(0.0, 1.0);
+        let contribution_probability = pattern_value * input_value.clamp(0.0, 1.0);
 
         rand::random::<f32>() < contribution_probability
     }

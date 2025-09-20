@@ -13,6 +13,7 @@ pub mod wavetables;
 pub mod additive;
 pub mod unified_synth;
 pub mod crossfade;
+pub mod unified_controller;
 
 pub use pipeline::AudioPipeline;
 pub use buffer::AudioBuffer;
@@ -27,6 +28,11 @@ pub use wavetables::{MorphingWavetableSynth, WaveCharacter, WavetableBank};
 pub use additive::{AdditiveSynthesizer, PolyharmonicCharacter, HarmonicOscillator};
 pub use unified_synth::{UnifiedSynthesizer, SynthesisMorpher, VoiceManager};
 pub use crossfade::{CrossfadeManager, CrossfadeParameter, CrossfadePriority};
+pub use unified_controller::{
+    UnifiedController, ControlParameter, ParameterConstraints, ParameterCurve,
+    PresetManager, Preset, PresetMetadata, SystemStatus, ControllerDiagnostics,
+    OutputLevels, PerformanceMetrics, ChangeSource,
+};
 
 /// Represents a single audio frame (mono sample)
 pub type AudioFrame = f32;

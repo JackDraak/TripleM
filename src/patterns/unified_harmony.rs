@@ -16,7 +16,7 @@ use std::collections::VecDeque;
 /// Unified harmony generator with continuous adaptation
 #[derive(Debug, Clone)]
 pub struct UnifiedHarmonyGenerator {
-    /// Current input value controlling all parameters (0.0-3.0)
+    /// Current input value controlling all parameters (0.0-1.0)
     input_value: f32,
 
     /// Chord progression system
@@ -699,7 +699,7 @@ impl UnifiedHarmonyGenerator {
 
     /// Set input value and update all parameters
     pub fn set_input_value(&mut self, input: f32) {
-        self.input_value = input.clamp(0.0, 3.0);
+        self.input_value = input.clamp(0.0, 1.0);
         self.update_parameters_from_input();
     }
 
@@ -1039,7 +1039,7 @@ impl PatternGenerator for UnifiedHarmonyGenerator {
 
     fn update_parameters(&mut self, params: &PatternParameters) {
         // Map pattern parameters to input value (simplified)
-        let input_value = params.intensity * 3.0; // Scale intensity to 0-3 range
+        let input_value = params.intensity; // Intensity already in 0-1 range
         self.set_input_value(input_value);
     }
 
@@ -1137,7 +1137,7 @@ impl AdaptiveChordProgression {
                     ChordFunction::Submediant,
                     ChordFunction::Dominant,
                 ],
-                input_range: (1.8, 3.0),
+                input_range: (0.6, 1.0),
                 style_traits: ProgressionTraits {
                     modal_tendency: 0.2,
                     chromatic_level: 0.6,
@@ -1200,8 +1200,8 @@ impl ChordSubstitutionSystem {
     }
 
     fn set_input_value(&mut self, input: f32) {
-        self.substitution_probability = (input / 3.0) * 0.3;
-        self.substitution_complexity = input / 3.0;
+        self.substitution_probability = input * 0.3;
+        self.substitution_complexity = input;
     }
 
     fn apply_substitution(&self, function: ChordFunction, rng: &mut StdRng) -> ChordFunction {
@@ -1263,8 +1263,8 @@ impl AdaptiveBassGenerator {
     }
 
     fn set_input_value(&mut self, input: f32) {
-        self.bass_presence = (input / 3.0).powf(0.7); // Exponential curve
-        self.pattern_complexity = input / 3.0;
+        self.bass_presence = input.powf(0.7); // Exponential curve
+        self.pattern_complexity = input;
     }
 
     fn get_current_bass_note(&mut self, chord: &ChordStructure, _beat_phase: f32) -> u8 {
@@ -1351,7 +1351,7 @@ impl ModulationSystem {
     }
 
     fn set_input_value(&mut self, input: f32) {
-        self.modulation_rate = (input / 3.0) * 0.05;
+        self.modulation_rate = input * 0.05;
     }
 }
 
@@ -1419,7 +1419,7 @@ impl HarmonicTextureManager {
 
     fn set_input_value(&mut self, input: f32) {
         // Update active voices based on input
-        self.active_voices = ((input / 3.0) * self.max_voices as f32) as usize + 1;
+        self.active_voices = (input * self.max_voices as f32) as usize + 1;
         self.active_voices = self.active_voices.min(self.max_voices);
 
         // Update texture type
@@ -1435,7 +1435,7 @@ impl HarmonicTextureManager {
 impl DensityCurve {
     fn default() -> Self {
         Self {
-            density_points: vec![(0.0, 0.1), (1.0, 0.4), (2.0, 0.7), (3.0, 1.0)],
+            density_points: vec![(0.0, 0.1), (0.33, 0.4), (0.67, 0.7), (1.0, 1.0)],
             smoothing: 0.9,
         }
     }

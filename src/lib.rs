@@ -1,20 +1,52 @@
 //! # Mood Music Module
 //!
-//! A procedural mood music module that generates continuous audio streams based on a single
-//! 0-1 floating point input parameter. The module supports four distinct mood categories
-//! that blend seamlessly based on the input value.
+//! A sophisticated procedural music generation system that creates continuous audio streams
+//! with seamless real-time parameter morphing. The module provides both simple and advanced
+//! interfaces to suit different use cases.
 //!
-//! ## Usage
+//! ## Simple Interface (MoodMusicModule)
+//!
+//! For basic usage, use the simple `MoodMusicModule` interface:
 //!
 //! ```rust
 //! use mood_music_module::MoodMusicModule;
 //!
 //! let mut module = MoodMusicModule::new(44100);
-//! module.set_mood(0.5); // Set to active ambient mode
+//! module.set_mood(0.5); // 0.0 = ambient, 1.0 = energetic electronic
 //! module.start();
 //!
 //! // In your audio callback:
 //! let sample = module.get_next_sample();
+//! ```
+//!
+//! ## Advanced Interface (UnifiedController)
+//!
+//! For advanced control with presets, real-time monitoring, and seamless cross-fading:
+//!
+//! ```rust
+//! use mood_music_module::{UnifiedController, MoodConfig, ControlParameter, ChangeSource};
+//!
+//! let config = MoodConfig::default_with_sample_rate(44100);
+//! let mut controller = UnifiedController::new(config).unwrap();
+//! controller.start().unwrap();
+//!
+//! // Smooth parameter changes with cross-fading
+//! controller.set_mood_intensity(0.7).unwrap();
+//! controller.set_parameter_smooth(
+//!     ControlParameter::RhythmicDensity,
+//!     0.8,
+//!     ChangeSource::UserInterface
+//! ).unwrap();
+//!
+//! // Load presets
+//! controller.load_preset("Focus").unwrap();
+//!
+//! // Monitor system status
+//! let status = controller.get_system_status();
+//! println!("CPU Usage: {:.1}%", status.cpu_usage * 100.0);
+//!
+//! // In your audio callback:
+//! let sample = controller.get_next_sample();
 //! ```
 
 pub mod audio;
@@ -27,6 +59,11 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 
 pub use audio::{AudioFrame, StereoFrame};
+pub use audio::{
+    UnifiedController, ControlParameter, ParameterConstraints, ParameterCurve,
+    PresetManager, Preset, PresetMetadata, SystemStatus, ControllerDiagnostics,
+    OutputLevels, PerformanceMetrics, ChangeSource,
+};
 pub use config::MoodConfig;
 pub use error::{MoodMusicError, Result};
 
