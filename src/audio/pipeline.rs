@@ -1,4 +1,4 @@
-use crate::audio::{OutputMixer, TransitionManager, AudioBuffer, StereoFrame};
+use crate::audio::{OutputMixer, TransitionManager, AudioBuffer, StereoFrame, AudioEvent};
 use crate::config::MoodConfig;
 use crate::error::Result;
 use crate::generators::{GeneratorPool, MoodGenerator};
@@ -24,6 +24,9 @@ pub struct AudioPipeline {
     // Performance monitoring
     last_cpu_load: f32,
     cpu_load_smoother: f32,
+
+    // Rhythm event queue
+    pending_events: Vec<AudioEvent>,
 }
 
 impl AudioPipeline {
@@ -53,6 +56,7 @@ impl AudioPipeline {
             output_buffer,
             last_cpu_load: 0.0,
             cpu_load_smoother: 0.0,
+            pending_events: Vec::new(),
         })
     }
 
@@ -76,6 +80,11 @@ impl AudioPipeline {
         self.transition_manager.start_transition(mood);
     }
 
+    /// Send rhythm events to the pipeline
+    pub fn send_events(&mut self, events: Vec<AudioEvent>) {
+        self.pending_events.extend(events);
+    }
+
     /// Get the next audio sample
     pub fn get_next_sample(&mut self) -> f32 {
         if !self.is_running() {
@@ -92,6 +101,9 @@ impl AudioPipeline {
 
         // Update generator parameters based on current weights
         self.update_generator_parameters();
+
+        // Process pending rhythm events
+        self.process_pending_events();
 
         // Generate samples from all generators
         let environmental = self.generators.environmental.generate_sample(self.current_time);
@@ -130,6 +142,9 @@ impl AudioPipeline {
 
         // Update generator parameters based on current weights
         self.update_generator_parameters();
+
+        // Process pending rhythm events
+        self.process_pending_events();
 
         // Generate stereo samples from all generators
         let environmental = self.generators.environmental.generate_stereo_sample(self.current_time);
@@ -379,6 +394,65 @@ impl AudioPipeline {
     fn advance_time(&mut self) {
         self.sample_count += 1;
         self.current_time = self.sample_count as f64 / self.config.sample_rate as f64;
+    }
+
+    /// Process pending rhythm events and send them to generators
+    fn process_pending_events(&mut self) {
+        if self.pending_events.is_empty() {
+            return;
+        }
+
+        // For now, we'll create simple rhythm triggers based on events
+        // In a full implementation, this would convert sophisticated AudioEvents
+        // to actual musical content sent to specific generators
+
+        let events_to_process = self.pending_events.clone();
+        self.pending_events.clear(); // Clear first to avoid borrowing issues
+
+        for event in &events_to_process {
+            match &event.event_type {
+                crate::audio::AudioEventType::RhythmTrigger { instrument, velocity, .. } => {
+                    // Send rhythm events to EDM generator for rhythmic content
+                    self.trigger_rhythm_event(*instrument, *velocity);
+                }
+                crate::audio::AudioEventType::NoteOn { pitch, velocity, .. } => {
+                    // Send note events to melodic generators
+                    self.trigger_note_event(*pitch, *velocity);
+                }
+                crate::audio::AudioEventType::ParameterChange { parameter, value, .. } => {
+                    // Apply parameter changes to generators
+                    self.apply_parameter_change(parameter.clone(), *value);
+                }
+                _ => {
+                    // Handle other event types as needed
+                }
+            }
+        }
+    }
+
+    /// Trigger a rhythm event in appropriate generators
+    fn trigger_rhythm_event(&mut self, _instrument: crate::audio::RhythmInstrument, velocity: f32) {
+        // For demonstration: boost EDM and Active Ambient generators when rhythm events occur
+        let rhythm_boost = velocity * 0.5; // Scale the velocity
+
+        // Temporarily boost intensity for rhythmic generators
+        // This is a simple demo - real implementation would be more sophisticated
+        self.generators.edm_style.set_intensity((self.generators.edm_style.intensity() + rhythm_boost).min(1.0));
+        self.generators.active_ambient.set_intensity((self.generators.active_ambient.intensity() + rhythm_boost * 0.3).min(1.0));
+    }
+
+    /// Trigger a note event in melodic generators
+    fn trigger_note_event(&mut self, _pitch: f32, velocity: f32) {
+        // For demonstration: boost melodic generators when note events occur
+        let melodic_boost = velocity * 0.3;
+
+        self.generators.gentle_melodic.set_intensity((self.generators.gentle_melodic.intensity() + melodic_boost).min(1.0));
+    }
+
+    /// Apply parameter changes to generators
+    fn apply_parameter_change(&mut self, _parameter: String, _value: f32) {
+        // For demonstration: apply parameter changes across generators
+        // Real implementation would map specific parameters to generator controls
     }
 
     /// Update CPU load with exponential smoothing

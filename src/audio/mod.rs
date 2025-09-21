@@ -15,6 +15,7 @@ pub mod unified_synth;
 pub mod crossfade;
 pub mod unified_controller;
 pub mod voice_coordination;
+pub mod pattern_translator;
 
 pub use pipeline::AudioPipeline;
 pub use buffer::AudioBuffer;
@@ -46,6 +47,10 @@ pub use voice_coordination::{
     HarmonicFunction, RhythmicPosition, ScaleType, MusicalMode, ChordType,
     ChordExtension, ChordVoicing, RhythmInstrument, PhraseType, MusicalTime,
     Chord, VoiceAllocation, ConflictResolver, MusicalPriorityRules,
+};
+pub use pattern_translator::{
+    PatternEventTranslator, StandardPatternTranslator, TranslationConfig,
+    ComplexityMappingStrategy, VoiceAllocationStrategy, TimingQuantization,
 };
 
 /// Represents a single audio frame (mono sample)

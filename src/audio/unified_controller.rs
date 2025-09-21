@@ -7,6 +7,7 @@
 use crate::audio::{
     CrossfadeManager, CrossfadeParameter, CrossfadePriority,
     AudioPipeline, StereoFrame, VoiceCoordinator, MusicalContext,
+    StandardPatternTranslator, PatternEventTranslator,
 };
 use crate::audio::crossfade::CrossfadeStats;
 use crate::patterns::multi_scale_rhythm::{MultiScaleRhythmSystem, ComplexityProfile};
@@ -38,6 +39,9 @@ pub struct UnifiedController {
 
     /// Voice coordination for polyphonic management
     voice_coordinator: VoiceCoordinator,
+
+    /// Pattern event translator
+    pattern_translator: StandardPatternTranslator,
 
     /// Configuration
     config: MoodConfig,
@@ -347,6 +351,7 @@ impl UnifiedController {
         let monitor = RealTimeMonitor::new();
         let rhythm_system = MultiScaleRhythmSystem::new(config.sample_rate as f32)?;
         let voice_coordinator = VoiceCoordinator::new(16); // Max 16 voices
+        let pattern_translator = StandardPatternTranslator::new(config.sample_rate as f32);
 
         Ok(Self {
             audio_pipeline,
@@ -356,6 +361,7 @@ impl UnifiedController {
             monitor,
             rhythm_system,
             voice_coordinator,
+            pattern_translator,
             config,
             is_active: AtomicBool::new(false),
         })
@@ -708,23 +714,55 @@ impl UnifiedController {
         }
     }
 
-    /// Process a multi-scale rhythm pattern through the voice coordination system
-    fn process_rhythm_pattern(&mut self, _pattern: crate::patterns::multi_scale_rhythm::MultiScaleRhythmPattern) {
-        // For now, this is a placeholder - in a full implementation, this would:
-        // 1. Extract patterns from all scales (micro, meso, macro)
-        // 2. Convert to AudioEvents with proper timing
-        // 3. Route through voice coordinator for polyphonic allocation
-        // 4. Send to appropriate generators based on pattern characteristics
+    /// Process a multi-scale rhythm pattern through the proper pattern translator
+    fn process_rhythm_pattern(&mut self, pattern: crate::patterns::multi_scale_rhythm::MultiScaleRhythmPattern) {
+        // Create musical context for translation
+        let musical_context = MusicalContext {
+            key: crate::audio::MusicalKey {
+                root: 60, // C4
+                scale_type: crate::audio::ScaleType::Major,
+                mode: crate::audio::MusicalMode::Ionian,
+            },
+            tempo: 120.0, // BPM
+            time_signature: (4, 4),
+            musical_time: crate::audio::MusicalTime {
+                measure: 1,
+                beat: 0.0,
+                subdivision: 0.0,
+                sample_time: 0,
+            },
+            master_phase: 0.0,
+            harmonic_context: crate::audio::HarmonicContext {
+                current_chord: crate::audio::Chord {
+                    root: 60,
+                    chord_type: crate::audio::ChordType::Major,
+                    extensions: vec![],
+                    voicing: crate::audio::ChordVoicing::Root,
+                },
+                chord_progression: vec![],
+                progression_position: 0,
+                tension_level: 0.5,
+            },
+            active_voices: vec![],
+        };
 
-        // This integration point represents where sophisticated multi-scale rhythm
-        // patterns become actual audio through the generator system.
-        // The MultiScaleRhythmPattern contains:
-        // - micro_scale_events: High-frequency pattern details
-        // - meso_scale_events: Mid-level rhythmic structure
-        // - macro_scale_events: Large-scale musical architecture
-        // - polyrhythmic_layers: Overlapping rhythmic patterns
-        // - euclidean_patterns: Mathematical rhythm distributions
-        // - phrase_context: Musical phrase awareness
+        // Use the proper pattern translator
+        if let Ok(events) = self.pattern_translator.translate_rhythm_pattern(&pattern, &musical_context, 1.0) {
+            if !events.is_empty() {
+                self.audio_pipeline.send_events(events);
+            }
+        }
+
+        // Also translate melody patterns
+        if let Ok(melody_events) = self.pattern_translator.translate_melody_pattern(
+            &pattern.base_pattern,
+            &musical_context,
+            &mut crate::audio::pattern_translator::VoiceAllocator::new()
+        ) {
+            if !melody_events.is_empty() {
+                self.audio_pipeline.send_events(melody_events);
+            }
+        }
     }
 }
 
