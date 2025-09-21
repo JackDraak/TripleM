@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use eframe::egui;
-use mood_music_module::{MoodMusicModule, MoodConfig, StereoFrame};
+use mood_music_module::{UnifiedController, MoodConfig, StereoFrame, ControlParameter, ChangeSource};
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -26,7 +26,7 @@ struct MoodMusicApp {
     volume: f32,
     is_playing: bool,
     current_mood_name: String,
-    audio_module: Option<Arc<Mutex<MoodMusicModule>>>,
+    audio_module: Option<Arc<Mutex<UnifiedController>>>,
     audio_thread: Option<std::thread::JoinHandle<()>>,
     audio_shutdown: Option<Arc<std::sync::atomic::AtomicBool>>,
     error_message: Option<String>,
@@ -110,18 +110,18 @@ impl MoodMusicApp {
         println!("🔇 Audio stopped");
     }
 
-    fn initialize_audio(&self) -> Result<Arc<Mutex<MoodMusicModule>>, Box<dyn std::error::Error>> {
+    fn initialize_audio(&self) -> Result<Arc<Mutex<UnifiedController>>, Box<dyn std::error::Error>> {
         let config = MoodConfig::default();
-        let mut module = MoodMusicModule::with_config(config)?;
+        let mut controller = UnifiedController::new(config)?;
 
-        module.start();
-        module.set_mood(self.mood_value);
-        module.set_volume(self.volume);
+        controller.start()?;
+        controller.set_mood_intensity(self.mood_value)?;
+        controller.set_master_volume(self.volume)?;
 
-        Ok(Arc::new(Mutex::new(module)))
+        Ok(Arc::new(Mutex::new(controller)))
     }
 
-    fn start_audio_thread(&mut self, module: Arc<Mutex<MoodMusicModule>>) {
+    fn start_audio_thread(&mut self, module: Arc<Mutex<UnifiedController>>) {
         let module_clone = module.clone();
         let shutdown_flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let shutdown_flag_for_callback = shutdown_flag.clone();
@@ -155,21 +155,31 @@ impl MoodMusicApp {
                     }
 
                     if let Ok(mut module_lock) = module_clone.try_lock() {
-                        for frame in data.chunks_mut(channels) {
-                            if channels == 1 {
-                                // Mono output - use mono sample
-                                let sample = module_lock.get_next_sample();
-                                frame[0] = sample;
-                            } else {
-                                // Stereo or multi-channel output - use stereo sample
-                                let stereo_sample = module_lock.get_next_stereo_sample();
-                                frame[0] = stereo_sample.left;  // Left channel
-                                if frame.len() > 1 {
-                                    frame[1] = stereo_sample.right; // Right channel
-                                }
-                                // Fill any additional channels with the right channel
-                                for ch in frame.iter_mut().skip(2) {
-                                    *ch = stereo_sample.right;
+                        if channels == 1 {
+                            // Mono output - use unified controller's buffer fill
+                            module_lock.fill_buffer(data);
+                        } else {
+                            // Stereo or multi-channel output
+                            // Convert interleaved buffer to stereo frames
+                            let frame_count = data.len() / channels;
+                            let mut stereo_buffer: Vec<StereoFrame> = vec![StereoFrame::silence(); frame_count];
+
+                            // Fill stereo buffer using UnifiedController
+                            module_lock.fill_stereo_buffer(&mut stereo_buffer);
+
+                            // Convert back to interleaved format
+                            for (i, stereo_frame) in stereo_buffer.iter().enumerate() {
+                                let base_idx = i * channels;
+                                if base_idx + 1 < data.len() {
+                                    data[base_idx] = stereo_frame.left;      // Left channel
+                                    data[base_idx + 1] = stereo_frame.right; // Right channel
+
+                                    // Fill any additional channels with the right channel
+                                    for ch_idx in 2..channels {
+                                        if base_idx + ch_idx < data.len() {
+                                            data[base_idx + ch_idx] = stereo_frame.right;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -213,8 +223,11 @@ impl MoodMusicApp {
         self.current_mood_name = self.get_mood_name(new_mood);
 
         if let Some(module) = &self.audio_module {
-            let mut module_lock = module.lock().unwrap();
-            module_lock.set_mood(new_mood);
+            if let Ok(mut module_lock) = module.lock() {
+                if let Err(e) = module_lock.set_parameter_smooth(ControlParameter::MoodIntensity, new_mood, ChangeSource::UserInterface) {
+                    self.error_message = Some(format!("Failed to update mood: {}", e));
+                }
+            }
         }
     }
 
@@ -222,8 +235,11 @@ impl MoodMusicApp {
         self.volume = new_volume;
 
         if let Some(module) = &self.audio_module {
-            let mut module_lock = module.lock().unwrap();
-            module_lock.set_volume(new_volume);
+            if let Ok(mut module_lock) = module.lock() {
+                if let Err(e) = module_lock.set_parameter_smooth(ControlParameter::MasterVolume, new_volume, ChangeSource::UserInterface) {
+                    self.error_message = Some(format!("Failed to update volume: {}", e));
+                }
+            }
         }
     }
 
@@ -247,11 +263,48 @@ impl MoodMusicApp {
 
     fn update_generator_states(&mut self) {
         if let Some(module) = &self.audio_module {
-            if let Ok(_module_lock) = module.try_lock() {
-                // Update RMS and other stats if available
-                self.current_rms = 0.05; // Placeholder - would need actual RMS calculation
+            if let Ok(module_lock) = module.try_lock() {
+                // Get actual system status from UnifiedController
+                let status = module_lock.get_system_status();
+                self.current_rms = if status.is_active { self.mood_value * 0.1 } else { 0.0 }; // Simple approximation
 
-                // Update generator states (simplified)
+                // Update generator states based on actual controller state
+                let mood_active = status.active_parameters.contains(&ControlParameter::MoodIntensity);
+                let tempo_value = if mood_active { 120.0 + (self.mood_value * 40.0) } else { 120.0 };
+
+                self.generator_states = vec![
+                    GeneratorDisplayState {
+                        name: "Environmental".to_string(),
+                        intensity: self.mood_value * if self.mood_value <= 0.25 { 1.0 } else { 0.2 },
+                        is_active: self.mood_value <= 0.4 && status.is_active,
+                        current_pattern: "Ocean Waves".to_string(),
+                        pattern_progress: 0.3,
+                    },
+                    GeneratorDisplayState {
+                        name: "Gentle Melodic".to_string(),
+                        intensity: self.mood_value * if self.mood_value > 0.25 && self.mood_value <= 0.5 { 1.0 } else { 0.2 },
+                        is_active: self.mood_value > 0.2 && self.mood_value <= 0.6 && status.is_active,
+                        current_pattern: "C Major - I chord".to_string(),
+                        pattern_progress: 0.6,
+                    },
+                    GeneratorDisplayState {
+                        name: "Active Ambient".to_string(),
+                        intensity: self.mood_value * if self.mood_value > 0.5 && self.mood_value <= 0.75 { 1.0 } else { 0.2 },
+                        is_active: self.mood_value > 0.4 && self.mood_value <= 0.8 && status.is_active,
+                        current_pattern: format!("Steady - {:.0} BPM", tempo_value),
+                        pattern_progress: 0.8,
+                    },
+                    GeneratorDisplayState {
+                        name: "EDM Style".to_string(),
+                        intensity: self.mood_value * if self.mood_value > 0.75 { 1.0 } else { 0.2 },
+                        is_active: self.mood_value > 0.7 && status.is_active,
+                        current_pattern: format!("Intro - {:.0} BPM - {:.0}%", tempo_value + 8.0, 25.0),
+                        pattern_progress: 0.25,
+                    },
+                ];
+            } else {
+                // Fallback to simplified display if status unavailable
+                self.current_rms = 0.05;
                 self.generator_states = vec![
                     GeneratorDisplayState {
                         name: "Environmental".to_string(),
