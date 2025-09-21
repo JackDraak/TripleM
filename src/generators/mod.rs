@@ -8,6 +8,10 @@ pub mod edm_style;
 use crate::config::MoodConfig;
 use crate::error::Result;
 use crate::audio::StereoFrame;
+use crate::audio::voice_coordination::{
+    AudioEvent, MusicalContext, VoiceRequest, VoiceId, VoiceState, VoiceRequirements
+};
+use std::collections::HashMap;
 
 pub use environmental::EnvironmentalGenerator;
 pub use gentle_melodic::GentleMelodicGenerator;
@@ -53,6 +57,30 @@ pub trait MoodGenerator {
 
     /// Get the generator's current state for diagnostics
     fn get_state(&self) -> GeneratorState;
+}
+
+/// Extended generator interface for polyphonic coordination
+pub trait PolyphonicGenerator: MoodGenerator {
+    /// Process a batch of audio events
+    fn process_events(&mut self, events: &[AudioEvent], context: &MusicalContext) -> Result<()>;
+
+    /// Allocate a voice for polyphonic playback
+    fn allocate_voice(&mut self, request: &VoiceRequest) -> Result<VoiceId>;
+
+    /// Release a specific voice
+    fn release_voice(&mut self, voice_id: VoiceId) -> Result<()>;
+
+    /// Update voice parameters in real-time
+    fn update_voice(&mut self, voice_id: VoiceId, parameters: &HashMap<String, f32>) -> Result<()>;
+
+    /// Get current voice states for coordination
+    fn get_voice_states(&self) -> Vec<VoiceState>;
+
+    /// Set musical context for intelligent generation
+    fn set_musical_context(&mut self, context: &MusicalContext);
+
+    /// Get generator's preferred voice allocation
+    fn get_voice_requirements(&self) -> VoiceRequirements;
 }
 
 /// Pool of all mood generators

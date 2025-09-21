@@ -14,6 +14,7 @@ pub mod additive;
 pub mod unified_synth;
 pub mod crossfade;
 pub mod unified_controller;
+pub mod voice_coordination;
 
 pub use pipeline::AudioPipeline;
 pub use buffer::AudioBuffer;
@@ -32,6 +33,19 @@ pub use unified_controller::{
     UnifiedController, ControlParameter, ParameterConstraints, ParameterCurve,
     PresetManager, Preset, PresetMetadata, SystemStatus, ControllerDiagnostics,
     OutputLevels, PerformanceMetrics, ChangeSource,
+};
+pub use voice_coordination::{
+    VoiceCoordinator, MusicalContext, VoicePool, Voice, VoiceId, MusicalNote,
+    VoiceEnvelope, VoiceRequest, VoiceState, VoiceRequirements, AudioEvent,
+    AudioEventType, EventPriority, GeneratorTarget, MusicalKey, HarmonicContext,
+};
+
+// Re-export public types from voice coordination for easy access
+pub use voice_coordination::{
+    MusicalRole, Articulation, EnvelopePhase, ConflictResolutionStrategy,
+    HarmonicFunction, RhythmicPosition, ScaleType, MusicalMode, ChordType,
+    ChordExtension, ChordVoicing, RhythmInstrument, PhraseType, MusicalTime,
+    Chord, VoiceAllocation, ConflictResolver, MusicalPriorityRules,
 };
 
 /// Represents a single audio frame (mono sample)

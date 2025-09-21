@@ -24,6 +24,9 @@ pub enum MoodMusicError {
     /// Pattern generation failed
     PatternError(String),
 
+    /// Voice coordination error
+    VoiceCoordinationError(String),
+
     /// Generic internal error
     InternalError(String),
 }
@@ -48,6 +51,9 @@ impl fmt::Display for MoodMusicError {
             }
             MoodMusicError::PatternError(msg) => {
                 write!(f, "Pattern error: {}", msg)
+            }
+            MoodMusicError::VoiceCoordinationError(msg) => {
+                write!(f, "Voice coordination error: {}", msg)
             }
             MoodMusicError::InternalError(msg) => {
                 write!(f, "Internal error: {}", msg)

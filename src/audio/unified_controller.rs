@@ -6,9 +6,10 @@
 
 use crate::audio::{
     CrossfadeManager, CrossfadeParameter, CrossfadePriority,
-    AudioPipeline, StereoFrame,
+    AudioPipeline, StereoFrame, VoiceCoordinator, MusicalContext,
 };
 use crate::audio::crossfade::CrossfadeStats;
+use crate::patterns::multi_scale_rhythm::{MultiScaleRhythmSystem, ComplexityProfile};
 use crate::config::MoodConfig;
 use crate::error::{Result, MoodMusicError};
 use std::collections::HashMap;
@@ -31,6 +32,12 @@ pub struct UnifiedController {
 
     /// Real-time monitoring and feedback
     monitor: RealTimeMonitor,
+
+    /// Multi-scale rhythm generation system
+    rhythm_system: MultiScaleRhythmSystem,
+
+    /// Voice coordination for polyphonic management
+    voice_coordinator: VoiceCoordinator,
 
     /// Configuration
     config: MoodConfig,
@@ -338,6 +345,8 @@ impl UnifiedController {
         let parameter_state = ParameterState::new();
         let preset_manager = PresetManager::new();
         let monitor = RealTimeMonitor::new();
+        let rhythm_system = MultiScaleRhythmSystem::new(config.sample_rate as f32)?;
+        let voice_coordinator = VoiceCoordinator::new(16); // Max 16 voices
 
         Ok(Self {
             audio_pipeline,
@@ -345,6 +354,8 @@ impl UnifiedController {
             parameter_state,
             preset_manager,
             monitor,
+            rhythm_system,
+            voice_coordinator,
             config,
             is_active: AtomicBool::new(false),
         })
@@ -523,6 +534,9 @@ impl UnifiedController {
         // Update parameter state with crossfaded values
         self.update_parameter_state_from_crossfades();
 
+        // Generate rhythm patterns and events
+        self.update_rhythm_system(delta_time);
+
         // Generate audio sample
         let sample = self.audio_pipeline.get_next_sample();
 
@@ -544,6 +558,9 @@ impl UnifiedController {
 
         // Update parameter state with crossfaded values
         self.update_parameter_state_from_crossfades();
+
+        // Generate rhythm patterns and events
+        self.update_rhythm_system(delta_time);
 
         // Generate stereo sample
         let sample = self.audio_pipeline.get_next_stereo_sample();
@@ -676,6 +693,38 @@ impl UnifiedController {
     /// Get list of currently active/transitioning parameters
     fn get_active_parameters(&self) -> Vec<ControlParameter> {
         self.parameter_state.get_active_parameters()
+    }
+
+    /// Update rhythm system and generate events
+    fn update_rhythm_system(&mut self, delta_time: f32) {
+        // Update rhythm system with current mood intensity
+        let input_value = self.get_parameter_value(ControlParameter::MoodIntensity);
+        self.rhythm_system.set_input_value(input_value);
+
+        // Generate rhythm patterns
+        if let Ok(pattern) = self.rhythm_system.generate_pattern() {
+            // Process the multi-scale rhythm pattern
+            self.process_rhythm_pattern(pattern);
+        }
+    }
+
+    /// Process a multi-scale rhythm pattern through the voice coordination system
+    fn process_rhythm_pattern(&mut self, _pattern: crate::patterns::multi_scale_rhythm::MultiScaleRhythmPattern) {
+        // For now, this is a placeholder - in a full implementation, this would:
+        // 1. Extract patterns from all scales (micro, meso, macro)
+        // 2. Convert to AudioEvents with proper timing
+        // 3. Route through voice coordinator for polyphonic allocation
+        // 4. Send to appropriate generators based on pattern characteristics
+
+        // This integration point represents where sophisticated multi-scale rhythm
+        // patterns become actual audio through the generator system.
+        // The MultiScaleRhythmPattern contains:
+        // - micro_scale_events: High-frequency pattern details
+        // - meso_scale_events: Mid-level rhythmic structure
+        // - macro_scale_events: Large-scale musical architecture
+        // - polyrhythmic_layers: Overlapping rhythmic patterns
+        // - euclidean_patterns: Mathematical rhythm distributions
+        // - phrase_context: Musical phrase awareness
     }
 }
 
