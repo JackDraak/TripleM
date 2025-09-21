@@ -91,19 +91,19 @@ pub struct PatternTemplate {
 #[derive(Debug, Clone)]
 pub struct PatternEvent {
     /// When this event occurs (0.0-1.0 within the pattern)
-    timing: f32,
+    pub timing: f32,
 
     /// How strong this event is (0.0-1.0)
-    velocity: f32,
+    pub velocity: f32,
 
     /// Whether this event should trigger
-    active: bool,
+    pub active: bool,
 
     /// Micro-timing offset
-    micro_offset: f32,
+    pub micro_offset: f32,
 
     /// Whether this is an accent
-    accent: bool,
+    pub accent: bool,
 }
 
 /// Micro-timing engine for humanization and groove

@@ -868,18 +868,70 @@ impl MicroScaleController {
     }
 
     fn generate_primary_pattern(&self, complexity: &ComplexityProfile) -> Result<Vec<PatternEvent>> {
-        // Implementation would generate sophisticated micro-scale patterns
-        Ok(Vec::new())
+        let mut events = Vec::new();
+
+        // Generate events based on complexity and current pattern state
+        let num_events = (complexity.density_target * 16.0) as usize; // Up to 16 events per pattern
+        let pattern_length = 16.0; // Fixed pattern length for now
+
+        for i in 0..num_events {
+            let position = (i as f32 / num_events as f32) * pattern_length;
+            let velocity = 0.5 + (complexity.overall_complexity * 0.5); // 0.5-1.0 range
+
+            // Add some variation based on polyrhythmic complexity
+            let timing_variation = if complexity.polyrhythmic_complexity > 0.5 {
+                (position.sin() * complexity.polyrhythmic_complexity * 0.1) // Up to 10% timing variation
+            } else {
+                0.0
+            };
+
+            events.push(PatternEvent {
+                timing: (position + timing_variation) / pattern_length,
+                velocity,
+                active: true,
+                micro_offset: timing_variation,
+                accent: i % 4 == 0 || complexity.structural_complexity > 0.7,
+            });
+        }
+
+        Ok(events)
     }
 
     fn generate_accent_pattern(&self, complexity: &ComplexityProfile) -> Result<AccentPattern> {
-        // Implementation would generate intelligent accent patterns
-        Ok(AccentPattern::default())
+        // Generate accent pattern based on complexity
+
+        Ok(AccentPattern {
+            pattern: if complexity.structural_complexity > 0.5 {
+                vec![true, false, true, false] // Strong accents on downbeats
+            } else {
+                vec![true, false, false, false] // Just downbeat
+            },
+            strength: complexity.overall_complexity,
+            subdivision: if complexity.polyrhythmic_complexity > 0.7 { 16 } else { 8 },
+        })
     }
 
     fn generate_micro_timing(&self, complexity: &ComplexityProfile) -> Result<Vec<f32>> {
-        // Implementation would generate micro-timing variations
-        Ok(Vec::new())
+        // Generate micro-timing variations based on complexity
+        let num_subdivisions = 16; // 16th note subdivisions
+        let mut timing_offsets = Vec::with_capacity(num_subdivisions);
+
+        for i in 0..num_subdivisions {
+            let base_timing = i as f32 / num_subdivisions as f32;
+
+            // Add humanization based on complexity
+            let humanization = if complexity.overall_complexity > 0.3 {
+                // Sine wave variation for musical swing
+                let swing_amount = complexity.polyrhythmic_complexity * 0.05; // Up to 5% swing
+                (base_timing * std::f32::consts::PI * 4.0).sin() * swing_amount
+            } else {
+                0.0
+            };
+
+            timing_offsets.push(humanization);
+        }
+
+        Ok(timing_offsets)
     }
 
     fn update_accent_patterns(&mut self, complexity: &ComplexityProfile) {
@@ -1428,8 +1480,37 @@ impl PolyrhythmEngine {
     }
 
     fn generate_layers(&self, complexity: &ComplexityProfile) -> Result<Vec<PolyrhythmicLayer>> {
-        // Implementation would generate polyrhythmic layers
-        Ok(Vec::new())
+        let mut layers = Vec::new();
+
+        // Base layer - always present
+        layers.push(PolyrhythmicLayer {
+            pattern: vec![true, false, true, false], // 4/4 pattern
+            time_signature: (4, 4),
+            phase_offset: 0.0,
+            layer_priority: complexity.overall_complexity,
+        });
+
+        // Add polyrhythmic layer if complexity is high enough
+        if complexity.polyrhythmic_complexity > 0.5 {
+            layers.push(PolyrhythmicLayer {
+                pattern: vec![true, false, true], // 3 against 4 polyrhythm
+                time_signature: (3, 4),
+                phase_offset: 0.0,
+                layer_priority: complexity.polyrhythmic_complexity,
+            });
+        }
+
+        // Add complex layer for high structural complexity
+        if complexity.structural_complexity > 0.7 {
+            layers.push(PolyrhythmicLayer {
+                pattern: vec![true, false, true, false, true], // 5 against 4 polyrhythm
+                time_signature: (5, 4),
+                phase_offset: 0.0,
+                layer_priority: complexity.structural_complexity,
+            });
+        }
+
+        Ok(layers)
     }
 
     fn get_activity_level(&self) -> f32 {
@@ -1448,8 +1529,51 @@ impl EuclideanPatternGenerator {
     }
 
     fn generate_patterns(&self, complexity: &ComplexityProfile) -> Result<Vec<EuclideanPattern>> {
-        // Implementation would generate Euclidean patterns
-        Ok(Vec::new())
+        let mut patterns = Vec::new();
+
+        // Generate basic Euclidean patterns based on complexity
+        let base_steps = if complexity.structural_complexity > 0.5 { 16 } else { 8 };
+        let num_hits = (complexity.density_target * base_steps as f32) as usize;
+
+        // Generate euclidean pattern: distribute num_hits evenly across base_steps
+        let mut pattern = vec![false; base_steps];
+        if num_hits > 0 {
+            for i in 0..num_hits {
+                let index = (i * base_steps / num_hits) % base_steps;
+                pattern[index] = true;
+            }
+        }
+
+        patterns.push(EuclideanPattern {
+            steps: base_steps as u8,
+            pulses: num_hits.max(1).min(base_steps) as u8,
+            rotation: 0,
+            pattern,
+        });
+
+        // Add secondary pattern for high complexity
+        if complexity.polyrhythmic_complexity > 0.6 {
+            let secondary_steps = (base_steps as f32 * 0.75) as usize; // Different time division
+            let secondary_hits = ((complexity.density_target * 0.5) * secondary_steps as f32) as usize;
+
+            // Generate secondary euclidean pattern
+            let mut secondary_pattern = vec![false; secondary_steps];
+            if secondary_hits > 0 {
+                for i in 0..secondary_hits {
+                    let index = (i * secondary_steps / secondary_hits) % secondary_steps;
+                    secondary_pattern[index] = true;
+                }
+            }
+
+            patterns.push(EuclideanPattern {
+                steps: secondary_steps as u8,
+                pulses: secondary_hits.max(1).min(secondary_steps) as u8,
+                rotation: (secondary_steps / 4).max(1) as u8, // Phase offset
+                pattern: secondary_pattern,
+            });
+        }
+
+        Ok(patterns)
     }
 
     fn get_complexity_level(&self) -> f32 {
